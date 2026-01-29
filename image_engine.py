@@ -183,9 +183,9 @@ async def create_top_grid_async(prices_data):
                 pass  # Skip logo if it takes too long
         
         # Fonts
-        font_name = get_font(26, bold=True)
-        font_price = get_font(48, bold=True)
-        font_change = get_font(22, bold=True)
+        font_name = get_font(32, bold=True)
+        font_price = get_font(56, bold=True)
+        font_change = get_font(28, bold=True)
         
         # Draw coin name
         draw.text((icon_x + icon_size + 15, y + 28), data["name"], fill='white', font=font_name)
@@ -201,7 +201,7 @@ async def create_top_grid_async(prices_data):
         draw.text((x + 20, y + 115), change_text, fill=change_color, font=font_change)
     
     # Add watermark
-    font_watermark = get_font(18)
+    font_watermark = get_font(22)
     draw.text((50, height - 40), WATERMARK, fill='#555555', font=font_watermark)
     
     return img
@@ -251,12 +251,12 @@ async def create_coin_card_async(coin_data, chart_data=None):
             pass
     
     # Coin name on badge
-    font_badge = get_font(32, bold=True)
+    font_badge = get_font(38, bold=True)
     draw = ImageDraw.Draw(img)  # Recreate draw after image modification
     draw.text((icon_x + icon_size + 15, badge_y + 18), coin_data["name"], fill='#000000', font=font_badge)
     
     # Large price display (left side)
-    font_price = get_font(80, bold=True)
+    font_price = get_font(90, bold=True)
     price_text = f"${coin_data['price']:,.4f}" if coin_data['price'] < 10 else f"${coin_data['price']:,.2f}"
     draw.text((90, 90), price_text, fill=color_rgb, font=font_price)
     
@@ -269,8 +269,8 @@ async def create_coin_card_async(coin_data, chart_data=None):
     badge_height_change = 70
     
     # Daily change label and badge
-    font_label = get_font(16, bold=True)
-    font_change_value = get_font(32, bold=True)
+    font_label = get_font(20, bold=True)
+    font_change_value = get_font(38, bold=True)
     
     draw.text((90, badge_y), "DAILY CHANGE", fill='#ff4444', font=font_label)
     
@@ -343,7 +343,7 @@ async def create_coin_card_async(coin_data, chart_data=None):
             draw.line(points, fill=line_color, width=4)
         
         # Draw date labels
-        font_date = get_font(13)
+        font_date = get_font(16)
         dates = ["Jan. 22", "Jan. 23", "Jan. 24", "Jan. 25", "Jan. 26", "Jan. 27", "Jan. 28", "Jan. 29"]
         for i in range(0, 8, 2):  # Show every other date
             x = chart_x + (i / 7) * chart_width
@@ -398,11 +398,11 @@ async def create_convert_card_async(coin_data, amount):
     draw = ImageDraw.Draw(img)  # Recreate draw
     
     # Coin name
-    font_coin = get_font(32, bold=True)
+    font_coin = get_font(38, bold=True)
     draw.text((icon_x + icon_size + 20, input_y + 22), coin_data["name"], fill='#000000', font=font_coin)
     
     # Amount
-    font_amount = get_font(40, bold=True)
+    font_amount = get_font(46, bold=True)
     amount_text = f"{amount:,.4f}" if amount < 1000 else f"{amount:,.2f}"
     amount_bbox = draw.textbbox((0, 0), amount_text, font=font_amount)
     amount_width = amount_bbox[2] - amount_bbox[0]
@@ -416,8 +416,8 @@ async def create_convert_card_async(coin_data, amount):
     draw.rounded_rectangle([arrow_x, arrow_y, arrow_x + arrow_badge_size, arrow_y + 50], 
                           radius=25, fill='#4a5568')
     
-    font_label = get_font(18, bold=True)
-    draw.text((arrow_x + 22, arrow_y + 14), "Value", fill='#c8d5e8', font=font_label)
+    font_label = get_font(22, bold=True)
+    draw.text((arrow_x + 18, arrow_y + 12), "Value", fill='#c8d5e8', font=font_label)
     
     # Bottom output section (USD)
     output_y = arrow_y + 90
@@ -435,8 +435,8 @@ async def create_convert_card_async(coin_data, amount):
     draw.rounded_rectangle([usd_badge_x, output_y + 15, usd_badge_x + usd_badge_width, output_y + 65], 
                           radius=30, fill='#4a5568')
     
-    font_usd = get_font(28, bold=True)
-    draw.text((usd_badge_x + 25, output_y + 24), "USD", fill='white', font=font_usd)
+    font_usd = get_font(32, bold=True)
+    draw.text((usd_badge_x + 25, output_y + 22), "USD", fill='white', font=font_usd)
     
     # Dollar icon
     dollar_size = 35
@@ -493,7 +493,7 @@ async def create_ath_card_async(coin_data):
     draw = ImageDraw.Draw(img)  # Recreate draw
     
     # Title text
-    font_title = get_font(32, bold=True)
+    font_title = get_font(38, bold=True)
     draw.text((icon_x + icon_size + 20, title_y + 18), f"{coin_data['name']} ATH", fill='#000000', font=font_title)
     
     # Info sections with rounded badges
@@ -503,8 +503,8 @@ async def create_ath_card_async(coin_data):
     badge_height = 70
     badge_x = (width - badge_width) // 2
     
-    font_label = get_font(16)
-    font_value = get_font(36, bold=True)
+    font_label = get_font(20)
+    font_value = get_font(42, bold=True)
     
     # ATH Price
     draw.text((badge_x + 20, y_pos - 25), "ALL-TIME HIGH", fill='#888888', font=font_label)
@@ -519,7 +519,7 @@ async def create_ath_card_async(coin_data):
     date_text = ath_date.strftime("%B %d, %Y")
     draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_width, y_pos + badge_height], 
                           radius=35, fill='#2a2a3a')
-    draw.text((badge_x + 30, y_pos + 18), date_text, fill='white', font=get_font(32, bold=True))
+    draw.text((badge_x + 30, y_pos + 18), date_text, fill='white', font=get_font(38, bold=True))
     
     # Current Price
     y_pos += spacing
