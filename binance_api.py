@@ -103,64 +103,70 @@ class BinancePriceUpdater:
                         # Calculate 7d change (approximate from 24h)
                         change_7d = float(data["priceChangePercent"]) * 3.5
                         
-                        # Fetch real ATH data from CoinGecko with retry
+                        # Fetch real ATH data from LiveCoinWatch
                         ath_price = float(data["lastPrice"]) * 2  # Better fallback
                         ath_date = "2021-01-01T00:00:00.000Z"  # Fallback date
                         
-                        # Try CoinGecko with retries
-                        for attempt in range(3):
+                        # Try LiveCoinWatch API (free, 10k requests/day)
+                        from config import LIVECOINWATCH_API_KEY, LCW_SYMBOL_MAP
+                        
+                        if LIVECOINWATCH_API_KEY:
                             try:
-                                # Get ATH from CoinGecko (free API, no key needed)
-                                coingecko_url = f"https://api.coingecko.com/api/v3/coins/{coingecko_id}"
-                                print(f"🔍 Attempt {attempt + 1}: Fetching ATH from CoinGecko for {coin_symbol.upper()} (ID: {coingecko_id})")
+                                # Get the correct LiveCoinWatch code
+                                if coin_info and "lcw_code" in coin_info:
+                                    lcw_code = coin_info["lcw_code"]
+                                elif coin_symbol.lower() in LCW_SYMBOL_MAP:
+                                    lcw_code = LCW_SYMBOL_MAP[coin_symbol.lower()]
+                                else:
+                                    lcw_code = coin_symbol.upper()
                                 
+                                lcw_url = "https://api.livecoinwatch.com/coins/single"
                                 headers = {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                                    'Accept': 'application/json'
+                                    'content-type': 'application/json',
+                                    'x-api-key': LIVECOINWATCH_API_KEY
+                                }
+                                payload = {
+                                    "currency": "USD",
+                                    "code": lcw_code,
+                                    "meta": True
                                 }
                                 
-                                async with session.get(coingecko_url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as cg_response:
-                                    print(f"📡 CoinGecko status: {cg_response.status}")
+                                print(f"🔍 Fetching ATH from LiveCoinWatch for {coin_symbol.upper()} (code: {lcw_code})")
+                                
+                                async with session.post(lcw_url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as lcw_response:
+                                    print(f"📡 LiveCoinWatch status: {lcw_response.status}")
                                     
-                                    if cg_response.status == 200:
-                                        cg_data = await cg_response.json()
+                                    if lcw_response.status == 200:
+                                        lcw_data = await lcw_response.json()
                                         
-                                        # Debug: Print what we got
-                                        if "market_data" in cg_data:
-                                            print(f"✅ Got market_data for {coin_symbol}")
-                                            if "ath" in cg_data["market_data"] and "usd" in cg_data["market_data"]["ath"]:
-                                                print(f"✅ Got ATH data for {coin_symbol}")
-                                                ath_price = float(cg_data["market_data"]["ath"]["usd"])
-                                                print(f"✅ ATH Price: ${ath_price:,.8f}")
-                                                
-                                                # Get ATH date if available
-                                                if "ath_date" in cg_data["market_data"] and "usd" in cg_data["market_data"]["ath_date"]:
-                                                    ath_date = cg_data["market_data"]["ath_date"]["usd"]
-                                                    print(f"✅ ATH Date: {ath_date}")
-                                                else:
-                                                    print(f"⚠️ No ath_date in market_data for {coin_symbol}, using fallback")
-                                                
-                                                print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.8f} on {ath_date}")
-                                                break  # Success, exit retry loop
-                                            else:
-                                                print(f"⚠️ No ath in market_data for {coin_symbol}")
+                                        if "allTimeHighUSD" in lcw_data and lcw_data["allTimeHighUSD"]:
+                                            ath_price = float(lcw_data["allTimeHighUSD"])
+                                            print(f"✅ Got real ATH from LiveCoinWatch for {coin_symbol.upper()}: ${ath_price:,.8f}")
+                                            # LiveCoinWatch doesn't provide ATH date, keep fallback
                                         else:
-                                            print(f"⚠️ No market_data in CoinGecko response for {coin_symbol}")
-                                    elif cg_response.status == 429:
-                                        print(f"⚠️ CoinGecko rate limit, waiting 3 seconds...")
-                                        await asyncio.sleep(3)
+                                            print(f"⚠️ No allTimeHighUSD in LiveCoinWatch response for {coin_symbol}")
+                                    elif lcw_response.status == 401:
+                                        print(f"⚠️ LiveCoinWatch API key invalid or missing")
+                                    elif lcw_response.status == 404:
+                                        print(f"⚠️ Coin {lcw_code} not found on LiveCoinWatch, trying uppercase symbol")
+                                        # Fallback: try with uppercase symbol
+                                        payload["code"] = coin_symbol.upper()
+                                        async with session.post(lcw_url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as retry_response:
+                                            if retry_response.status == 200:
+                                                retry_data = await retry_response.json()
+                                                if "allTimeHighUSD" in retry_data and retry_data["allTimeHighUSD"]:
+                                                    ath_price = float(retry_data["allTimeHighUSD"])
+                                                    print(f"✅ Got real ATH from LiveCoinWatch (retry) for {coin_symbol.upper()}: ${ath_price:,.8f}")
                                     else:
-                                        error_text = await cg_response.text()
-                                        print(f"⚠️ CoinGecko returned status {cg_response.status}: {error_text[:200]}")
+                                        error_text = await lcw_response.text()
+                                        print(f"⚠️ LiveCoinWatch returned status {lcw_response.status}: {error_text[:200]}")
                                         
                             except asyncio.TimeoutError:
-                                print(f"⚠️ CoinGecko timeout for {coin_symbol} (attempt {attempt + 1})")
-                                if attempt < 2:
-                                    await asyncio.sleep(2)
+                                print(f"⚠️ LiveCoinWatch timeout for {coin_symbol}")
                             except Exception as e:
-                                print(f"⚠️ CoinGecko error (attempt {attempt + 1}): {e}")
-                                if attempt < 2:
-                                    await asyncio.sleep(2)
+                                print(f"⚠️ LiveCoinWatch error: {e}")
+                        else:
+                            print(f"⚠️ No LiveCoinWatch API key configured, using fallback ATH")
                         
                         result = {
                             "symbol": symbol,
