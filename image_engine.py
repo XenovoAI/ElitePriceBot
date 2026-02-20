@@ -81,15 +81,15 @@ def draw_glassmorphism_card(draw, x, y, w, h, color_rgb, is_positive):
 
 async def create_top_grid_async(prices_data):
     """Ultra-professional glassmorphism grid"""
-    width, height = 1200, 700
+    width, height = 1200, 800
     
     # Pure black background
     img = Image.new('RGB', (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(img)
     
     coins = ["btc", "eth", "sol", "ton", "ltc", "xrp", "bnb", "trx"]
-    tile_w, tile_h = 260, 220
-    padding, start_x, start_y = 30, 50, 80
+    tile_w, tile_h = 280, 280
+    padding, start_x, start_y = 25, 40, 60
     
     for idx, coin in enumerate(coins):
         if coin not in prices_data:
@@ -135,40 +135,40 @@ async def create_top_grid_async(prices_data):
         # Logo
         logo_url = data.get("logo_url")
         if logo_url:
-            logo = await download_logo(logo_url, 50)
+            logo = await download_logo(logo_url, 60)
             if logo:
-                logo_x = x + (tile_w - 50) // 2
-                logo_y = y + 20
+                logo_x = x + (tile_w - 60) // 2
+                logo_y = y + 25
                 img.paste(logo, (logo_x, logo_y), logo)
         
         # Symbol (below logo)
-        font_symbol = get_font(36, bold=True)
+        font_symbol = get_font(28, bold=True)
         symbol_color = (200, 210, 220)
         bbox_symbol = draw.textbbox((0, 0), data["symbol"], font=font_symbol)
         symbol_width = bbox_symbol[2] - bbox_symbol[0]
-        draw.text((x + (tile_w - symbol_width)//2, y + 80), data["symbol"], fill=symbol_color, font=font_symbol)
+        draw.text((x + (tile_w - symbol_width)//2, y + 105), data["symbol"], fill=symbol_color, font=font_symbol)
         
         # Price
-        font_price = get_font(28, bold=True)
+        font_price = get_font(22, bold=True)
         price_text = f"${data['price']:,.2f}" if data['price'] < 1000 else f"${data['price']:,.0f}"
         
         # Center price
         bbox = draw.textbbox((0, 0), price_text, font=font_price)
         price_width = bbox[2] - bbox[0]
-        draw.text((x + (tile_w - price_width)//2, y + 130), price_text, fill='#FFFFFF', font=font_price)
+        draw.text((x + (tile_w - price_width)//2, y + 165), price_text, fill='#FFFFFF', font=font_price)
         
         # Change percentage
-        font_change = get_font(22, bold=True)
+        font_change = get_font(18, bold=True)
         change_color = '#00FF88' if change >= 0 else '#FF4444'
         change_text = f"{'+' if change >= 0 else ''}{change:.2f}%"
         
         # Center change
         bbox_change = draw.textbbox((0, 0), change_text, font=font_change)
         change_width = bbox_change[2] - bbox_change[0]
-        draw.text((x + (tile_w - change_width)//2, y + 175), change_text, fill=change_color, font=font_change)
+        draw.text((x + (tile_w - change_width)//2, y + 220), change_text, fill=change_color, font=font_change)
     
     # Watermark
-    font_watermark = get_font(16)
+    font_watermark = get_font(11)
     draw.text(((width - 200) // 2, height - 35), WATERMARK, fill='#555555', font=font_watermark)
     
     return img
