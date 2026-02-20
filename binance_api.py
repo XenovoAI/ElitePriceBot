@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 from datetime import datetime, timedelta
-from config import SUPPORTED_COINS
+from config import SUPPORTED_COINS, LIVECOINWATCH_API_KEY, LCW_SYMBOL_MAP, DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
 
 class BinancePriceUpdater:
     def __init__(self):
@@ -91,7 +91,6 @@ class BinancePriceUpdater:
                             premium_emoji_id = coin_info.get("premium_emoji_id")
                         else:
                             # Default values for unsupported coins
-                            from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
                             name = coin_symbol.upper()
                             symbol = coin_symbol.upper()
                             color = DEFAULT_COIN_COLOR
@@ -106,8 +105,6 @@ class BinancePriceUpdater:
                         ath_date = "2021-01-01T00:00:00.000Z"  # Fallback date
                         
                         # Try LiveCoinWatch API (free, 10k requests/day)
-                        from config import LIVECOINWATCH_API_KEY, LCW_SYMBOL_MAP
-                        
                         if LIVECOINWATCH_API_KEY:
                             try:
                                 # Get the correct LiveCoinWatch code
@@ -185,8 +182,6 @@ class BinancePriceUpdater:
                         # Binance failed - try to get ALL data from LiveCoinWatch
                         print(f"⚠️ Binance failed for {binance_symbol}, trying LiveCoinWatch as primary source")
                         
-                        from config import LIVECOINWATCH_API_KEY, LCW_SYMBOL_MAP
-                        
                         if not LIVECOINWATCH_API_KEY:
                             error_text = await response.text()
                             print(f"❌ Binance API error for {binance_symbol}: {response.status} - {error_text}")
@@ -228,7 +223,6 @@ class BinancePriceUpdater:
                                         logo_url = coin_info.get("logo_url")
                                         premium_emoji_id = coin_info.get("premium_emoji_id")
                                     else:
-                                        from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
                                         name = lcw_data.get("name", coin_symbol.upper())
                                         symbol = lcw_data.get("symbol", coin_symbol.upper())
                                         color = lcw_data.get("color", DEFAULT_COIN_COLOR)
@@ -274,7 +268,6 @@ class BinancePriceUpdater:
                                                 logo_url = coin_info.get("logo_url")
                                                 premium_emoji_id = coin_info.get("premium_emoji_id")
                                             else:
-                                                from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
                                                 name = retry_data.get("name", coin_symbol.upper())
                                                 symbol = retry_data.get("symbol", coin_symbol.upper())
                                                 color = retry_data.get("color", DEFAULT_COIN_COLOR)
