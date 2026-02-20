@@ -89,6 +89,7 @@ class BinancePriceUpdater:
                             color = coin_info["color"]
                             logo_url = coin_info.get("logo_url")
                             premium_emoji_id = coin_info.get("premium_emoji_id")
+                            coingecko_id = coin_info.get("id")
                         else:
                             # Default values for unsupported coins
                             from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
@@ -97,9 +98,27 @@ class BinancePriceUpdater:
                             color = DEFAULT_COIN_COLOR
                             logo_url = DEFAULT_LOGO_URL
                             premium_emoji_id = DEFAULT_PREMIUM_EMOJI_ID
+                            coingecko_id = coin_symbol.lower()
                         
                         # Calculate 7d change (approximate from 24h)
                         change_7d = float(data["priceChangePercent"]) * 3.5
+                        
+                        # Fetch real ATH data from CoinGecko
+                        ath_price = float(data["highPrice"]) * 1.5  # Default fallback
+                        ath_date = "2021-11-10T00:00:00Z"  # Default fallback
+                        
+                        try:
+                            # Get ATH from CoinGecko (free API, no key needed)
+                            coingecko_url = f"https://api.coingecko.com/api/v3/coins/{coingecko_id}"
+                            async with session.get(coingecko_url, timeout=aiohttp.ClientTimeout(total=5)) as cg_response:
+                                if cg_response.status == 200:
+                                    cg_data = await cg_response.json()
+                                    if "market_data" in cg_data:
+                                        ath_price = cg_data["market_data"]["ath"]["usd"]
+                                        ath_date = cg_data["market_data"]["ath_date"]["usd"]
+                                        print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f}")
+                        except Exception as e:
+                            print(f"⚠️ Could not fetch ATH from CoinGecko: {e}")
                         
                         result = {
                             "symbol": symbol,
@@ -107,8 +126,8 @@ class BinancePriceUpdater:
                             "price": float(data["lastPrice"]),
                             "change_24h": float(data["priceChangePercent"]),
                             "change_7d": change_7d,
-                            "ath": float(data["highPrice"]) * 1.5,
-                            "ath_date": "2021-11-10T00:00:00Z",
+                            "ath": ath_price,
+                            "ath_date": ath_date,
                             "color": color,
                             "logo_url": logo_url,
                             "premium_emoji_id": premium_emoji_id

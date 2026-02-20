@@ -112,12 +112,20 @@ async def cmd_top(message: types.Message):
         img_bytes = image_to_bytes(img)
         
         photo = BufferedInputFile(img_bytes.read(), filename="top_coins.png")
-        caption = "🪙 Top 8 Cryptocurrencies\n\n🍦 Powered by @conesociety"
+        
+        # Build caption parts
+        part1 = "🪙 "
+        part2 = "Top 8 Cryptocurrencies\n\n"
+        part3 = "🍦 Powered by @conesociety"
+        caption = part1 + part2 + part3
+        
+        # Calculate UTF-16 offset for ice cream emoji
+        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
         
         # Create custom emoji entities
         entities = [
             MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=PREMIUM_EMOJI_ID),
-            MessageEntity(type="custom_emoji", offset=29, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
         await message.answer_photo(photo, caption=caption, caption_entities=entities)
