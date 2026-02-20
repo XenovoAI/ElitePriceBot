@@ -111,7 +111,10 @@ async def cmd_top(message: types.Message):
         img = await create_top_grid_async(prices)
         img_bytes = image_to_bytes(img)
         
-        photo = BufferedInputFile(img_bytes.read(), filename="top_coins.png")
+        # Unique filename with timestamp to prevent caching
+        import time
+        filename = f"top_coins_{int(time.time())}.png"
+        photo = BufferedInputFile(img_bytes.read(), filename=filename)
         
         # Build caption parts
         part1 = "🪙 "
@@ -146,7 +149,10 @@ async def handle_coin_command(message: types.Message, coin_symbol: str):
         img = await create_coin_card_async(coin_data, chart_data)
         img_bytes = image_to_bytes(img)
         
-        photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_card.png")
+        # Unique filename with timestamp to prevent caching
+        import time
+        filename = f"{coin_symbol}_{int(time.time())}.png"
+        photo = BufferedInputFile(img_bytes.read(), filename=filename)
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         logger.info(f"Using premium emoji ID for {coin_symbol}: {premium_id}")
         
@@ -238,7 +244,10 @@ async def cmd_crypto(message: types.Message):
         img = await create_coin_card_async(coin_data, chart_data)
         img_bytes = image_to_bytes(img)
         
-        photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_card.png")
+        # Unique filename with timestamp to prevent caching
+        import time
+        filename = f"{coin_symbol}_{int(time.time())}.png"
+        photo = BufferedInputFile(img_bytes.read(), filename=filename)
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         
         # Build caption parts
@@ -344,7 +353,10 @@ async def cmd_ath(message: types.Message):
         img = await create_ath_card_async(coin_data)
         img_bytes = image_to_bytes(img)
         
-        photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_ath.png")
+        # Unique filename with timestamp to prevent caching
+        import time
+        filename = f"{coin_symbol}_ath_{int(time.time())}.png"
+        photo = BufferedInputFile(img_bytes.read(), filename=filename)
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         
         # Build caption parts
@@ -408,7 +420,10 @@ async def cmd_convert(message: types.Message):
         img = await create_convert_card_async(coin_data, amount)
         img_bytes = image_to_bytes(img)
         
-        photo = BufferedInputFile(img_bytes.read(), filename=f"convert_{coin_symbol}.png")
+        # Unique filename with timestamp to prevent caching
+        import time
+        filename = f"convert_{coin_symbol}_{int(time.time())}.png"
+        photo = BufferedInputFile(img_bytes.read(), filename=filename)
         usd_value = amount * coin_data['price']
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         

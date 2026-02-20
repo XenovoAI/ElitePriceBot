@@ -542,21 +542,27 @@ async def create_ath_card_async(coin_data):
     return img
 
 def image_to_bytes(img):
-    """Convert image to bytes with cache-busting for Telegram groups"""
+    """Convert image to bytes with aggressive cache-busting for Telegram groups"""
     import random
+    import time
     
-    # Add invisible random pixel to prevent Telegram caching
-    # This ensures each image is unique even with same content
+    # Method 1: Add invisible random noise to multiple pixels
     draw = ImageDraw.Draw(img)
-    x, y = random.randint(0, img.width-1), random.randint(0, img.height-1)
-    current_pixel = img.getpixel((x, y))
+    for _ in range(5):
+        x, y = random.randint(0, img.width-1), random.randint(0, img.height-1)
+        current_pixel = img.getpixel((x, y))
+        
+        if isinstance(current_pixel, tuple):
+            new_pixel = tuple(min(255, max(0, c + random.randint(-2, 2))) for c in current_pixel)
+            draw.point((x, y), fill=new_pixel)
     
-    # Slightly modify one pixel (imperceptible to human eye)
-    if isinstance(current_pixel, tuple):
-        new_pixel = tuple(min(255, max(0, c + random.randint(-1, 1))) for c in current_pixel)
-        draw.point((x, y), fill=new_pixel)
+    # Method 2: Add timestamp metadata to PNG
+    from PIL import PngImagePlugin
+    metadata = PngImagePlugin.PngInfo()
+    metadata.add_text("timestamp", str(time.time()))
+    metadata.add_text("random", str(random.randint(1000000, 9999999)))
     
     bio = io.BytesIO()
-    img.save(bio, format='PNG')
+    img.save(bio, format='PNG', pnginfo=metadata)
     bio.seek(0)
     return bio
