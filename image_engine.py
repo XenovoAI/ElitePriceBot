@@ -31,9 +31,14 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 def get_font(size, bold=False):
+    # Increase font size by 40% for better visibility on VPS
+    size = int(size * 1.4)
+    
     fonts_to_try = [
         "arialbd.ttf" if bold else "arial.ttf",
         "C:\\Windows\\Fonts\\arialbd.ttf" if bold else "C:\\Windows\\Fonts\\arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
     for font in fonts_to_try:
         try:
