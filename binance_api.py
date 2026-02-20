@@ -62,7 +62,7 @@ class BinancePriceUpdater:
             return False
     
     async def fetch_coin_details(self, coin_symbol):
-        """Fetch detailed coin data from Binance - supports ANY coin"""
+        """Fetch detailed coin data from Binance or LiveCoinWatch - supports ANY coin"""
         try:
             # Try to get from config first
             coin_info = SUPPORTED_COINS.get(coin_symbol.lower())
@@ -89,7 +89,6 @@ class BinancePriceUpdater:
                             color = coin_info["color"]
                             logo_url = coin_info.get("logo_url")
                             premium_emoji_id = coin_info.get("premium_emoji_id")
-                            coingecko_id = coin_info.get("id")
                         else:
                             # Default values for unsupported coins
                             from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
@@ -98,7 +97,6 @@ class BinancePriceUpdater:
                             color = DEFAULT_COIN_COLOR
                             logo_url = DEFAULT_LOGO_URL
                             premium_emoji_id = DEFAULT_PREMIUM_EMOJI_ID
-                            coingecko_id = coin_symbol.lower()
                         
                         # Calculate 7d change (approximate from 24h)
                         change_7d = float(data["priceChangePercent"]) * 3.5
@@ -142,7 +140,6 @@ class BinancePriceUpdater:
                                         if "allTimeHighUSD" in lcw_data and lcw_data["allTimeHighUSD"]:
                                             ath_price = float(lcw_data["allTimeHighUSD"])
                                             print(f"✅ Got real ATH from LiveCoinWatch for {coin_symbol.upper()}: ${ath_price:,.8f}")
-                                            # LiveCoinWatch doesn't provide ATH date, keep fallback
                                         else:
                                             print(f"⚠️ No allTimeHighUSD in LiveCoinWatch response for {coin_symbol}")
                                     elif lcw_response.status == 401:
@@ -185,8 +182,135 @@ class BinancePriceUpdater:
                         print(f"✅ Successfully fetched {coin_symbol.upper()} - ATH: ${ath_price:,.2f} on {ath_date}")
                         return result
                     else:
-                        error_text = await response.text()
-                        print(f"❌ Binance API error for {binance_symbol}: {response.status} - {error_text}")
+                        # Binance failed - try to get ALL data from LiveCoinWatch
+                        print(f"⚠️ Binance failed for {binance_symbol}, trying LiveCoinWatch as primary source")
+                        
+                        from config import LIVECOINWATCH_API_KEY, LCW_SYMBOL_MAP
+                        
+                        if not LIVECOINWATCH_API_KEY:
+                            error_text = await response.text()
+                            print(f"❌ Binance API error for {binance_symbol}: {response.status} - {error_text}")
+                            return None
+                        
+                        try:
+                            # Get the correct LiveCoinWatch code
+                            if coin_info and "lcw_code" in coin_info:
+                                lcw_code = coin_info["lcw_code"]
+                            elif coin_symbol.lower() in LCW_SYMBOL_MAP:
+                                lcw_code = LCW_SYMBOL_MAP[coin_symbol.lower()]
+                            else:
+                                lcw_code = coin_symbol.upper()
+                            
+                            lcw_url = "https://api.livecoinwatch.com/coins/single"
+                            headers = {
+                                'content-type': 'application/json',
+                                'x-api-key': LIVECOINWATCH_API_KEY
+                            }
+                            payload = {
+                                "currency": "USD",
+                                "code": lcw_code,
+                                "meta": True
+                            }
+                            
+                            print(f"🔍 Fetching ALL data from LiveCoinWatch for {coin_symbol.upper()} (code: {lcw_code})")
+                            
+                            async with session.post(lcw_url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as lcw_response:
+                                print(f"📡 LiveCoinWatch status: {lcw_response.status}")
+                                
+                                if lcw_response.status == 200:
+                                    lcw_data = await lcw_response.json()
+                                    
+                                    # Use config data if available, otherwise use LiveCoinWatch data
+                                    if coin_info:
+                                        name = coin_info["name"]
+                                        symbol = coin_info["symbol"]
+                                        color = coin_info["color"]
+                                        logo_url = coin_info.get("logo_url")
+                                        premium_emoji_id = coin_info.get("premium_emoji_id")
+                                    else:
+                                        from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
+                                        name = lcw_data.get("name", coin_symbol.upper())
+                                        symbol = lcw_data.get("symbol", coin_symbol.upper())
+                                        color = lcw_data.get("color", DEFAULT_COIN_COLOR)
+                                        logo_url = lcw_data.get("png64", DEFAULT_LOGO_URL)
+                                        premium_emoji_id = DEFAULT_PREMIUM_EMOJI_ID
+                                    
+                                    # Get price and changes from LiveCoinWatch
+                                    price = float(lcw_data.get("rate", 0))
+                                    delta = lcw_data.get("delta", {})
+                                    change_24h = (float(delta.get("day", 1.0)) - 1.0) * 100
+                                    change_7d = (float(delta.get("week", 1.0)) - 1.0) * 100
+                                    
+                                    # Get ATH
+                                    ath_price = float(lcw_data.get("allTimeHighUSD", price * 2))
+                                    ath_date = "2021-01-01T00:00:00.000Z"
+                                    
+                                    result = {
+                                        "symbol": symbol,
+                                        "name": name,
+                                        "price": price,
+                                        "change_24h": change_24h,
+                                        "change_7d": change_7d,
+                                        "ath": ath_price,
+                                        "ath_date": ath_date,
+                                        "color": color,
+                                        "logo_url": logo_url,
+                                        "premium_emoji_id": premium_emoji_id
+                                    }
+                                    
+                                    print(f"✅ Successfully fetched {coin_symbol.upper()} from LiveCoinWatch - Price: ${price:,.8f}, ATH: ${ath_price:,.8f}")
+                                    return result
+                                elif lcw_response.status == 404:
+                                    print(f"⚠️ Coin {lcw_code} not found on LiveCoinWatch, trying uppercase")
+                                    payload["code"] = coin_symbol.upper()
+                                    async with session.post(lcw_url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as retry_response:
+                                        if retry_response.status == 200:
+                                            retry_data = await retry_response.json()
+                                            
+                                            if coin_info:
+                                                name = coin_info["name"]
+                                                symbol = coin_info["symbol"]
+                                                color = coin_info["color"]
+                                                logo_url = coin_info.get("logo_url")
+                                                premium_emoji_id = coin_info.get("premium_emoji_id")
+                                            else:
+                                                from config import DEFAULT_COIN_COLOR, DEFAULT_LOGO_URL, DEFAULT_PREMIUM_EMOJI_ID
+                                                name = retry_data.get("name", coin_symbol.upper())
+                                                symbol = retry_data.get("symbol", coin_symbol.upper())
+                                                color = retry_data.get("color", DEFAULT_COIN_COLOR)
+                                                logo_url = retry_data.get("png64", DEFAULT_LOGO_URL)
+                                                premium_emoji_id = DEFAULT_PREMIUM_EMOJI_ID
+                                            
+                                            price = float(retry_data.get("rate", 0))
+                                            delta = retry_data.get("delta", {})
+                                            change_24h = (float(delta.get("day", 1.0)) - 1.0) * 100
+                                            change_7d = (float(delta.get("week", 1.0)) - 1.0) * 100
+                                            ath_price = float(retry_data.get("allTimeHighUSD", price * 2))
+                                            ath_date = "2021-01-01T00:00:00.000Z"
+                                            
+                                            result = {
+                                                "symbol": symbol,
+                                                "name": name,
+                                                "price": price,
+                                                "change_24h": change_24h,
+                                                "change_7d": change_7d,
+                                                "ath": ath_price,
+                                                "ath_date": ath_date,
+                                                "color": color,
+                                                "logo_url": logo_url,
+                                                "premium_emoji_id": premium_emoji_id
+                                            }
+                                            
+                                            print(f"✅ Successfully fetched {coin_symbol.upper()} from LiveCoinWatch (retry) - Price: ${price:,.8f}, ATH: ${ath_price:,.8f}")
+                                            return result
+                                else:
+                                    error_text = await lcw_response.text()
+                                    print(f"❌ LiveCoinWatch error: {lcw_response.status} - {error_text[:200]}")
+                                    return None
+                                    
+                        except Exception as e:
+                            print(f"❌ LiveCoinWatch fallback failed: {e}")
+                            return None
         except Exception as e:
             print(f"❌ Failed to fetch {coin_symbol} details: {e}")
         return None
