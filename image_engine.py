@@ -2,6 +2,8 @@
 import io
 import asyncio
 import aiohttp
+import random
+from datetime import datetime
 from config import WATERMARK
 
 # Logo cache
@@ -167,9 +169,11 @@ async def create_top_grid_async(prices_data):
         change_width = bbox_change[2] - bbox_change[0]
         draw.text((x + (tile_w - change_width)//2, y + 220), change_text, fill=change_color, font=font_change)
     
-    # Watermark
+    # Watermark with timestamp (prevents Telegram cache in groups)
     font_watermark = get_font(11)
-    draw.text(((width - 200) // 2, height - 35), WATERMARK, fill='#555555', font=font_watermark)
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    watermark_text = f"{WATERMARK} • {timestamp}"
+    draw.text(((width - 280) // 2, height - 35), watermark_text, fill='#555555', font=font_watermark)
     
     return img
 
@@ -303,9 +307,11 @@ async def create_coin_card_async(coin_data, chart_data=None):
         draw.text((chart_x + chart_w//2 - 60, chart_y + chart_h//2), 
                  "Loading chart...", fill='#666666', font=font_msg)
     
-    # Watermark
-    font_watermark = get_font(14)
-    draw.text((width//2 - 100, height - 40), WATERMARK, fill='#555555', font=font_watermark)
+    # Watermark with timestamp (prevents Telegram cache in groups)
+    font_watermark = get_font(10)
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    watermark_text = f"{WATERMARK} • {timestamp}"
+    draw.text((width//2 - 140, height - 40), watermark_text, fill='#555555', font=font_watermark)
     
     return img
 
@@ -404,9 +410,11 @@ async def create_convert_card_async(coin_data, amount):
     draw.text((input_x + 30, output_y + 35), "USD", fill='#FFFFFF', font=font_coin)
     draw.text((input_x + input_w - 300, output_y + 32), usd_text, fill='#00FF88', font=font_amount)
     
-    # Watermark
-    font_watermark = get_font(14)
-    draw.text((width//2 - 100, height - 40), WATERMARK, fill='#555555', font=font_watermark)
+    # Watermark with timestamp (prevents Telegram cache in groups)
+    font_watermark = get_font(10)
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    watermark_text = f"{WATERMARK} • {timestamp}"
+    draw.text((width//2 - 140, height - 40), watermark_text, fill='#555555', font=font_watermark)
     
     return img
 
@@ -525,13 +533,29 @@ async def create_ath_card_async(coin_data):
                           radius=40, outline='#FF4444', width=2)
     draw.text((badge_x + 30, y_pos + 22), f"-{percent_down:.2f}%", fill='#FF4444', font=font_value)
     
-    # Watermark
-    font_watermark = get_font(14)
-    draw.text((width//2 - 100, height - 40), WATERMARK, fill='#555555', font=font_watermark)
+    # Watermark with timestamp (prevents Telegram cache in groups)
+    font_watermark = get_font(10)
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    watermark_text = f"{WATERMARK} • {timestamp}"
+    draw.text((width//2 - 140, height - 40), watermark_text, fill='#555555', font=font_watermark)
     
     return img
 
 def image_to_bytes(img):
+    """Convert image to bytes with cache-busting for Telegram groups"""
+    import random
+    
+    # Add invisible random pixel to prevent Telegram caching
+    # This ensures each image is unique even with same content
+    draw = ImageDraw.Draw(img)
+    x, y = random.randint(0, img.width-1), random.randint(0, img.height-1)
+    current_pixel = img.getpixel((x, y))
+    
+    # Slightly modify one pixel (imperceptible to human eye)
+    if isinstance(current_pixel, tuple):
+        new_pixel = tuple(min(255, max(0, c + random.randint(-1, 1))) for c in current_pixel)
+        draw.point((x, y), fill=new_pixel)
+    
     bio = io.BytesIO()
     img.save(bio, format='PNG')
     bio.seek(0)
