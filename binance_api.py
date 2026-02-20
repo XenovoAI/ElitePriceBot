@@ -6,7 +6,7 @@ from config import SUPPORTED_COINS
 class BinancePriceUpdater:
     def __init__(self):
         self.prices = {}
-        self.coin_details = {}
+        self.coin_details = {}  # Don't use this cache anymore
         self.chart_data = {}
         self.last_update = None
         self.is_running = False
@@ -128,18 +128,20 @@ class BinancePriceUpdater:
                                         # Debug: Print what we got
                                         if "market_data" in cg_data:
                                             print(f"✅ Got market_data for {coin_symbol}")
-                                            if "ath" in cg_data["market_data"]:
+                                            if "ath" in cg_data["market_data"] and "usd" in cg_data["market_data"]["ath"]:
                                                 print(f"✅ Got ATH data for {coin_symbol}")
-                                                if "usd" in cg_data["market_data"]["ath"]:
-                                                    ath_price = cg_data["market_data"]["ath"]["usd"]
-                                                    print(f"✅ ATH Price: ${ath_price:,.2f}")
+                                                ath_price = float(cg_data["market_data"]["ath"]["usd"])
+                                                print(f"✅ ATH Price: ${ath_price:,.8f}")
+                                                
+                                                # Get ATH date if available
                                                 if "ath_date" in cg_data["market_data"] and "usd" in cg_data["market_data"]["ath_date"]:
                                                     ath_date = cg_data["market_data"]["ath_date"]["usd"]
                                                     print(f"✅ ATH Date: {ath_date}")
-                                                    print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f} on {ath_date}")
-                                                    break  # Success, exit retry loop
                                                 else:
-                                                    print(f"⚠️ No ath_date in market_data for {coin_symbol}")
+                                                    print(f"⚠️ No ath_date in market_data for {coin_symbol}, using fallback")
+                                                
+                                                print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.8f} on {ath_date}")
+                                                break  # Success, exit retry loop
                                             else:
                                                 print(f"⚠️ No ath in market_data for {coin_symbol}")
                                         else:
@@ -173,8 +175,8 @@ class BinancePriceUpdater:
                             "premium_emoji_id": premium_emoji_id
                         }
                         
-                        self.coin_details[coin_symbol] = result
-                        print(f"✅ Successfully fetched {coin_symbol.upper()}")
+                        # Don't cache - always fetch fresh
+                        print(f"✅ Successfully fetched {coin_symbol.upper()} - ATH: ${ath_price:,.2f} on {ath_date}")
                         return result
                     else:
                         error_text = await response.text()
