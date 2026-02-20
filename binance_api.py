@@ -105,46 +105,60 @@ class BinancePriceUpdater:
                         
                         # Fetch real ATH data from CoinGecko with retry
                         ath_price = float(data["lastPrice"]) * 2  # Better fallback
-                        ath_date = datetime.now().isoformat() + "Z"  # Current date as fallback
+                        ath_date = "2021-01-01T00:00:00.000Z"  # Fallback date
                         
                         # Try CoinGecko with retries
-                        for attempt in range(2):
+                        for attempt in range(3):
                             try:
                                 # Get ATH from CoinGecko (free API, no key needed)
                                 coingecko_url = f"https://api.coingecko.com/api/v3/coins/{coingecko_id}"
-                                print(f"🔍 Attempt {attempt + 1}: Fetching ATH from CoinGecko for {coin_symbol.upper()}")
+                                print(f"🔍 Attempt {attempt + 1}: Fetching ATH from CoinGecko for {coin_symbol.upper()} (ID: {coingecko_id})")
                                 
                                 headers = {
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                                    'Accept': 'application/json'
                                 }
                                 
-                                async with session.get(coingecko_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as cg_response:
+                                async with session.get(coingecko_url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as cg_response:
                                     print(f"📡 CoinGecko status: {cg_response.status}")
                                     
                                     if cg_response.status == 200:
                                         cg_data = await cg_response.json()
                                         
-                                        if "market_data" in cg_data and "ath" in cg_data["market_data"]:
-                                            ath_price = cg_data["market_data"]["ath"]["usd"]
-                                            ath_date = cg_data["market_data"]["ath_date"]["usd"]
-                                            print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f} on {ath_date}")
-                                            break  # Success, exit retry loop
+                                        # Debug: Print what we got
+                                        if "market_data" in cg_data:
+                                            print(f"✅ Got market_data for {coin_symbol}")
+                                            if "ath" in cg_data["market_data"]:
+                                                print(f"✅ Got ATH data for {coin_symbol}")
+                                                if "usd" in cg_data["market_data"]["ath"]:
+                                                    ath_price = cg_data["market_data"]["ath"]["usd"]
+                                                    print(f"✅ ATH Price: ${ath_price:,.2f}")
+                                                if "ath_date" in cg_data["market_data"] and "usd" in cg_data["market_data"]["ath_date"]:
+                                                    ath_date = cg_data["market_data"]["ath_date"]["usd"]
+                                                    print(f"✅ ATH Date: {ath_date}")
+                                                    print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f} on {ath_date}")
+                                                    break  # Success, exit retry loop
+                                                else:
+                                                    print(f"⚠️ No ath_date in market_data for {coin_symbol}")
+                                            else:
+                                                print(f"⚠️ No ath in market_data for {coin_symbol}")
                                         else:
-                                            print(f"⚠️ No ATH data in CoinGecko response for {coin_symbol}")
+                                            print(f"⚠️ No market_data in CoinGecko response for {coin_symbol}")
                                     elif cg_response.status == 429:
-                                        print(f"⚠️ CoinGecko rate limit, waiting...")
-                                        await asyncio.sleep(2)
+                                        print(f"⚠️ CoinGecko rate limit, waiting 3 seconds...")
+                                        await asyncio.sleep(3)
                                     else:
-                                        print(f"⚠️ CoinGecko returned status {cg_response.status}")
+                                        error_text = await cg_response.text()
+                                        print(f"⚠️ CoinGecko returned status {cg_response.status}: {error_text[:200]}")
                                         
                             except asyncio.TimeoutError:
                                 print(f"⚠️ CoinGecko timeout for {coin_symbol} (attempt {attempt + 1})")
-                                if attempt == 0:
-                                    await asyncio.sleep(1)
+                                if attempt < 2:
+                                    await asyncio.sleep(2)
                             except Exception as e:
                                 print(f"⚠️ CoinGecko error (attempt {attempt + 1}): {e}")
-                                if attempt == 0:
-                                    await asyncio.sleep(1)
+                                if attempt < 2:
+                                    await asyncio.sleep(2)
                         
                         result = {
                             "symbol": symbol,
@@ -249,20 +263,12 @@ class BinancePriceUpdater:
     
     def get_coin_details(self, coin_symbol):
         """Get cached coin details or return None to trigger fetch"""
-        cached = self.coin_details.get(coin_symbol.lower())
-        if cached:
-            return cached
-        # Return None so the caller knows to fetch
+        # Always return None to force fresh fetch - fixes cache issues
         return None
     
     async def get_coin_details_async(self, coin_symbol):
-        """Get coin details - fetch if not cached"""
-        # Check cache first
-        cached = self.coin_details.get(coin_symbol.lower())
-        if cached:
-            return cached
-        
-        # Not in cache, fetch from Binance
+        """Get coin details - always fetch fresh to avoid cache issues"""
+        # Always fetch fresh data to fix GC vs DM cache issues
         return await self.fetch_coin_details(coin_symbol)
     
     def get_chart_data(self, coin_symbol):

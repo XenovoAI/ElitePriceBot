@@ -321,7 +321,11 @@ async def cmd_broadcast(message: types.Message):
 
 @dp.message(Command("ath"))
 async def cmd_ath(message: types.Message):
+    """ATH command - supports ANY coin from Binance"""
     try:
+        # Track user
+        add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+        
         args = message.text.split()
         if len(args) < 2:
             await message.answer(
@@ -330,24 +334,20 @@ async def cmd_ath(message: types.Message):
                 "<b>Examples:</b>\n"
                 "• /ath sol\n"
                 "• /ath btc\n"
-                "• /ath eth\n\n"
-                "<b>Supported coins:</b> btc, eth, sol, ton, bnb, xrp, trx, ltc",
+                "• /ath eth\n"
+                "• /ath doge\n"
+                "• /ath sui\n\n"
+                "<b>Supports 1000+ coins from Binance!</b>",
                 parse_mode="HTML"
             )
             return
         
         coin_symbol = args[1].lower()
-        if coin_symbol not in SUPPORTED_COINS:
-            await message.answer(
-                f"❌ <b>Unsupported coin!</b>\n\n"
-                f"<b>Supported coins:</b> {', '.join(SUPPORTED_COINS.keys())}",
-                parse_mode="HTML"
-            )
-            return
         
+        # Fetch coin data (works for any coin)
         coin_data = await get_coin_price(coin_symbol)
         if not coin_data:
-            await message.answer(f"❌ Failed to fetch {coin_symbol.upper()} data. Please try again.")
+            await message.answer(f"❌ Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
             return
         
         img = await create_ath_card_async(coin_data)
@@ -378,7 +378,7 @@ async def cmd_ath(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /ath: {e}")
-        await message.answer("❌ An error occurred. Please try again.")
+        await message.answer("❌ An error occurred. Please try again or check if the coin symbol is correct.")
 
 @dp.message(Command("convert"))
 async def cmd_convert(message: types.Message):
