@@ -232,14 +232,14 @@ async def create_coin_card_async(coin_data, chart_data=None):
     draw.text((70, 170), price_text, fill=color_rgb, font=font_price)
     
     # Change badges
-    badge_y = 260
-    badge_w, badge_h = 180, 60
+    badge_y = 280
+    badge_w, badge_h = 220, 75
     
-    font_label = get_font(14, bold=True)
-    font_value = get_font(26, bold=True)
+    font_label = get_font(11, bold=True)
+    font_value = get_font(22, bold=True)
     
     # 24h badge
-    draw.text((70, badge_y - 25), "24H CHANGE", fill='#888888', font=font_label)
+    draw.text((70, badge_y - 30), "24H CHANGE", fill='#888888', font=font_label)
     bg_24h = (0, 50, 30) if change_24h >= 0 else (50, 0, 20)
     draw.rounded_rectangle([70, badge_y, 70 + badge_w, badge_y + badge_h], radius=30, fill=bg_24h)
     
@@ -251,11 +251,11 @@ async def create_coin_card_async(coin_data, chart_data=None):
     text_24h = f"{'+' if change_24h >= 0 else ''}{change_24h:.2f}%"
     bbox = draw.textbbox((0, 0), text_24h, font=font_value)
     text_w = bbox[2] - bbox[0]
-    draw.text((70 + (badge_w - text_w) // 2, badge_y + 17), text_24h, fill=color_24h, font=font_value)
+    draw.text((70 + (badge_w - text_w) // 2, badge_y + 22), text_24h, fill=color_24h, font=font_value)
     
     # 7d badge
-    weekly_x = 280
-    draw.text((weekly_x, badge_y - 25), "7D CHANGE", fill='#888888', font=font_label)
+    weekly_x = 320
+    draw.text((weekly_x, badge_y - 30), "7D CHANGE", fill='#888888', font=font_label)
     bg_7d = (0, 50, 30) if change_7d >= 0 else (50, 0, 20)
     draw.rounded_rectangle([weekly_x, badge_y, weekly_x + badge_w, badge_y + badge_h], radius=30, fill=bg_7d)
     
@@ -267,10 +267,10 @@ async def create_coin_card_async(coin_data, chart_data=None):
     text_7d = f"{'+' if change_7d >= 0 else ''}{change_7d:.2f}%"
     bbox_7d = draw.textbbox((0, 0), text_7d, font=font_value)
     text_w_7d = bbox_7d[2] - bbox_7d[0]
-    draw.text((weekly_x + (badge_w - text_w_7d) // 2, badge_y + 17), text_7d, fill=color_7d, font=font_value)
+    draw.text((weekly_x + (badge_w - text_w_7d) // 2, badge_y + 22), text_7d, fill=color_7d, font=font_value)
     
     # Chart section
-    chart_y, chart_h = 380, 270
+    chart_y, chart_h = 400, 270
     chart_w, chart_x = width - 140, 70
     
     # Chart background with glow
@@ -282,8 +282,8 @@ async def create_coin_card_async(coin_data, chart_data=None):
     draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h],
                           radius=15, fill=(25, 30, 40))
     
-    font_chart = get_font(16, bold=True)
-    draw.text((chart_x + 10, chart_y - 30), "7-DAY PRICE CHART", fill='#888888', font=font_chart)
+    font_chart = get_font(12, bold=True)
+    draw.text((chart_x + 10, chart_y - 35), "7-DAY PRICE CHART", fill='#888888', font=font_chart)
     
     if chart_data and len(chart_data) > 10:
         min_price, max_price = min(chart_data), max(chart_data)
