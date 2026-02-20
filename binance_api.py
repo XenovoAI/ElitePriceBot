@@ -103,22 +103,48 @@ class BinancePriceUpdater:
                         # Calculate 7d change (approximate from 24h)
                         change_7d = float(data["priceChangePercent"]) * 3.5
                         
-                        # Fetch real ATH data from CoinGecko
-                        ath_price = float(data["highPrice"]) * 1.5  # Default fallback
-                        ath_date = "2021-11-10T00:00:00Z"  # Default fallback
+                        # Fetch real ATH data from CoinGecko with retry
+                        ath_price = float(data["lastPrice"]) * 2  # Better fallback
+                        ath_date = datetime.now().isoformat() + "Z"  # Current date as fallback
                         
-                        try:
-                            # Get ATH from CoinGecko (free API, no key needed)
-                            coingecko_url = f"https://api.coingecko.com/api/v3/coins/{coingecko_id}"
-                            async with session.get(coingecko_url, timeout=aiohttp.ClientTimeout(total=5)) as cg_response:
-                                if cg_response.status == 200:
-                                    cg_data = await cg_response.json()
-                                    if "market_data" in cg_data:
-                                        ath_price = cg_data["market_data"]["ath"]["usd"]
-                                        ath_date = cg_data["market_data"]["ath_date"]["usd"]
-                                        print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f}")
-                        except Exception as e:
-                            print(f"⚠️ Could not fetch ATH from CoinGecko: {e}")
+                        # Try CoinGecko with retries
+                        for attempt in range(2):
+                            try:
+                                # Get ATH from CoinGecko (free API, no key needed)
+                                coingecko_url = f"https://api.coingecko.com/api/v3/coins/{coingecko_id}"
+                                print(f"🔍 Attempt {attempt + 1}: Fetching ATH from CoinGecko for {coin_symbol.upper()}")
+                                
+                                headers = {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                                }
+                                
+                                async with session.get(coingecko_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as cg_response:
+                                    print(f"📡 CoinGecko status: {cg_response.status}")
+                                    
+                                    if cg_response.status == 200:
+                                        cg_data = await cg_response.json()
+                                        
+                                        if "market_data" in cg_data and "ath" in cg_data["market_data"]:
+                                            ath_price = cg_data["market_data"]["ath"]["usd"]
+                                            ath_date = cg_data["market_data"]["ath_date"]["usd"]
+                                            print(f"✅ Got real ATH for {coin_symbol.upper()}: ${ath_price:,.2f} on {ath_date}")
+                                            break  # Success, exit retry loop
+                                        else:
+                                            print(f"⚠️ No ATH data in CoinGecko response for {coin_symbol}")
+                                    elif cg_response.status == 429:
+                                        print(f"⚠️ CoinGecko rate limit, waiting...")
+                                        await asyncio.sleep(2)
+                                    else:
+                                        print(f"⚠️ CoinGecko returned status {cg_response.status}")
+                                        
+                            except asyncio.TimeoutError:
+                                print(f"⚠️ CoinGecko timeout for {coin_symbol} (attempt {attempt + 1})")
+                                if attempt == 0:
+                                    await asyncio.sleep(1)
+                            except Exception as e:
+                                print(f"⚠️ CoinGecko error (attempt {attempt + 1}): {e}")
+                                if attempt == 0:
+                                    await asyncio.sleep(1)
                         
                         result = {
                             "symbol": symbol,
