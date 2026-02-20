@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# ElitePriceBot startup script
+# Cone Price Bot startup script
 
-echo "Starting ElitePriceBot..."
+echo "Starting Cone Price Bot..."
 
 # Check if .env exists
 if [ ! -f .env ]; then

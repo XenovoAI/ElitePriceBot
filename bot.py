@@ -2,13 +2,15 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import BufferedInputFile, BotCommand
-from config import BOT_TOKEN, SUPPORTED_COINS
+from aiogram.types import BufferedInputFile, BotCommand, MessageEntity
+from config import BOT_TOKEN, SUPPORTED_COINS, PREMIUM_EMOJI_ID, ICE_CREAM_EMOJI_ID, ADMIN_IDS
 from api import get_coin_price, get_all_prices, get_price_chart
+from binance_api import binance_updater
 from image_engine import (
     create_top_grid_async, create_coin_card_async, create_ath_card_async, 
     create_convert_card_async, image_to_bytes
 )
+from database import add_user, get_stats
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,33 +37,36 @@ async def set_bot_commands():
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    welcome_text = """🚀 <b>Welcome to ElitePriceBot!</b>
+    # Track user
+    add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    
+    welcome_text = """🚀 <b>Welcome to Cone Price Bot!</b>
 
 Get beautiful crypto price cards instantly.
 
 <b>📊 Available Commands:</b>
 
 <b>Price Cards:</b>
-• /top - View all 8 coins in a grid
-• /btc - Bitcoin price card
-• /eth - Ethereum price card
-• /sol - Solana price card
-• /ton - Toncoin price card
-• /bnb - BNB price card
-• /xrp - XRP price card
-• /trx - TRON price card
-• /ltc - Litecoin price card
+• /top - View top 8 coins in a grid
+• /crypto &lt;symbol&gt; - ANY cryptocurrency!
+• /btc, /eth, /sol, /ton, /bnb, /xrp, /trx, /ltc
 
 <b>Advanced:</b>
-• /ath sol - All-time high info
-• /convert 20 ton - Convert to USD
+• /ath &lt;coin&gt; - All-time high info
+• /convert &lt;amount&gt; &lt;coin&gt; - Convert to USD
 
-<b>💎 Powered by @minielite</b>"""
+<b>Examples:</b>
+• /crypto doge
+• /crypto shib
+• /crypto ada
+
+<b>🍦 Powered by @conesociety</b>
+<b>Supports 1000+ coins from Binance!</b>"""
     await message.answer(welcome_text, parse_mode="HTML")
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
-    help_text = """<b>📖 ElitePriceBot Help</b>
+    help_text = """<b>📖 Cone Price Bot Help</b>
 
 <b>How to use:</b>
 
@@ -69,7 +74,16 @@ async def cmd_help(message: types.Message):
 Send /top to see a beautiful grid of all 8 supported cryptocurrencies with live prices and 24h changes.
 
 <b>2. Individual Coin Cards:</b>
-Send /btc, /eth, /sol, /ton, /bnb, /xrp, /trx, or /ltc to get a detailed card with:
+• /btc - ₿ Bitcoin
+• /eth - Ξ Ethereum
+• /sol - ◎ Solana
+• /ton - 💎 Toncoin
+• /bnb - 🔶 BNB
+• /xrp - ✕ XRP
+• /trx - ⚡ TRON
+• /ltc - Ł Litecoin
+
+Each card shows:
 • Current price
 • 24h change
 • 7-day change
@@ -83,10 +97,7 @@ Example: /ath sol
 Send /convert followed by amount and coin
 Example: /convert 20 ton
 
-<b>Supported Coins:</b>
-BTC, ETH, SOL, TON, BNB, XRP, TRX, LTC
-
-<b>💎 Powered by @minielite</b>"""
+<b>🍦 Powered by @conesociety</b>"""
     await message.answer(help_text, parse_mode="HTML")
 
 @dp.message(Command("top"))
@@ -101,7 +112,15 @@ async def cmd_top(message: types.Message):
         img_bytes = image_to_bytes(img)
         
         photo = BufferedInputFile(img_bytes.read(), filename="top_coins.png")
-        await message.answer_photo(photo, caption="📊 Top 8 Cryptocurrencies\n\nPowered by @minielite")
+        caption = "🪙 Top 8 Cryptocurrencies\n\n🍦 Powered by @conesociety"
+        
+        # Create custom emoji entities
+        entities = [
+            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=PREMIUM_EMOJI_ID),
+            MessageEntity(type="custom_emoji", offset=29, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+        ]
+        
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
         
     except Exception as e:
         logger.error(f"Error in /top: {e}")
@@ -120,8 +139,25 @@ async def handle_coin_command(message: types.Message, coin_symbol: str):
         img_bytes = image_to_bytes(img)
         
         photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_card.png")
-        caption = f"💎 {coin_data['name']} ({coin_data['symbol']})\n\nPowered by @minielite"
-        await message.answer_photo(photo, caption=caption)
+        premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
+        logger.info(f"Using premium emoji ID for {coin_symbol}: {premium_id}")
+        
+        # Build caption parts
+        part1 = "🪙 "
+        part2 = f"{coin_data['name']} ({coin_data['symbol']})\n\n"
+        part3 = "🍦 Powered by @conesociety"
+        caption = part1 + part2 + part3
+        
+        # Calculate UTF-16 offset for ice cream emoji
+        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
+        
+        # Create custom emoji entities
+        entities = [
+            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=premium_id),
+            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+        ]
+        
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
         
     except Exception as e:
         logger.error(f"Error in /{coin_symbol}: {e}")
@@ -159,6 +195,113 @@ async def cmd_trx(message: types.Message):
 async def cmd_ltc(message: types.Message):
     await handle_coin_command(message, "ltc")
 
+@dp.message(Command("crypto"))
+async def cmd_crypto(message: types.Message):
+    """Universal crypto command - supports ANY coin"""
+    try:
+        # Track user
+        add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+        
+        args = message.text.split()
+        if len(args) < 2:
+            await message.answer(
+                "❌ <b>Invalid format!</b>\n\n"
+                "<b>Usage:</b> /crypto &lt;symbol&gt;\n\n"
+                "<b>Examples:</b>\n"
+                "• /crypto doge\n"
+                "• /crypto shib\n"
+                "• /crypto ada\n"
+                "• /crypto avax\n\n"
+                "<b>Supports 1000+ coins from Binance!</b>",
+                parse_mode="HTML"
+            )
+            return
+        
+        coin_symbol = args[1].lower()
+        
+        # Fetch coin data
+        coin_data = await get_coin_price(coin_symbol)
+        if not coin_data:
+            await message.answer(f"❌ Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
+            return
+        
+        chart_data = await get_price_chart(coin_symbol, days=7)
+        
+        img = await create_coin_card_async(coin_data, chart_data)
+        img_bytes = image_to_bytes(img)
+        
+        photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_card.png")
+        premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
+        
+        # Build caption parts
+        part1 = "🪙 "
+        part2 = f"{coin_data['name']} ({coin_data['symbol']})\n\n"
+        part3 = "🍦 Powered by @conesociety"
+        caption = part1 + part2 + part3
+        
+        # Calculate UTF-16 offset for ice cream emoji
+        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
+        
+        # Create custom emoji entities
+        entities = [
+            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=premium_id),
+            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+        ]
+        
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        
+    except Exception as e:
+        logger.error(f"Error in /crypto: {e}")
+        await message.answer("❌ An error occurred. Please try again or check if the coin symbol is correct.")
+
+@dp.message(Command("stats"))
+async def cmd_stats(message: types.Message):
+    """Admin only - bot statistics"""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    try:
+        stats = get_stats()
+        
+        stats_text = f"""📊 <b>Bot Statistics</b>
+
+<b>👥 Users:</b>
+• Total Users: {stats['total_users']}
+• Total Commands: {stats['total_commands']}
+
+<b>⚙️ System:</b>
+• Status: ✅ Running
+• Supported Coins: {len(SUPPORTED_COINS)} + 1000+ via /crypto
+• Update Interval: 30 seconds
+• API: Binance (No rate limits)
+
+<b>📋 Commands:</b>
+• /top - Grid view
+• /crypto &lt;symbol&gt; - Any coin
+• Individual: /btc, /eth, /sol, etc.
+• /ath &lt;coin&gt; - ATH info
+• /convert &lt;amount&gt; &lt;coin&gt; - Converter
+
+🍦 Powered by @conesociety"""
+        
+        await message.answer(stats_text, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error in /stats: {e}")
+        await message.answer(f"Error: {e}")
+
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: types.Message):
+    """Admin only - broadcast message"""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    await message.answer(
+        "📢 <b>Broadcast Feature</b>\n\n"
+        "This feature requires a user database.\n"
+        "Would you like me to implement user tracking?",
+        parse_mode="HTML"
+    )
+
 @dp.message(Command("ath"))
 async def cmd_ath(message: types.Message):
     try:
@@ -194,8 +337,24 @@ async def cmd_ath(message: types.Message):
         img_bytes = image_to_bytes(img)
         
         photo = BufferedInputFile(img_bytes.read(), filename=f"{coin_symbol}_ath.png")
-        caption = f"🏆 {coin_data['name']} All-Time High\n\nPowered by @minielite"
-        await message.answer_photo(photo, caption=caption)
+        premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
+        
+        # Build caption parts
+        part1 = "🪙 "
+        part2 = f"{coin_data['name']} All-Time High\n\n"
+        part3 = "🍦 Powered by @conesociety"
+        caption = part1 + part2 + part3
+        
+        # Calculate UTF-16 offset for ice cream emoji
+        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
+        
+        # Create custom emoji entities
+        entities = [
+            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=premium_id),
+            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+        ]
+        
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
         
     except Exception as e:
         logger.error(f"Error in /ath: {e}")
@@ -243,8 +402,24 @@ async def cmd_convert(message: types.Message):
         
         photo = BufferedInputFile(img_bytes.read(), filename=f"convert_{coin_symbol}.png")
         usd_value = amount * coin_data['price']
-        caption = f"💱 {amount} {coin_data['symbol']} = ${usd_value:,.2f} USD\n\nPowered by @minielite"
-        await message.answer_photo(photo, caption=caption)
+        premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
+        
+        # Build caption parts
+        part1 = "🪙 "
+        part2 = f"{amount} {coin_data['symbol']} = ${usd_value:,.2f} USD\n\n"
+        part3 = "🍦 Powered by @conesociety"
+        caption = part1 + part2 + part3
+        
+        # Calculate UTF-16 offset for ice cream emoji
+        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
+        
+        # Create custom emoji entities
+        entities = [
+            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=premium_id),
+            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
+        ]
+        
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
         
     except Exception as e:
         logger.error(f"Error in /convert: {e}")
@@ -286,13 +461,18 @@ async def handle_unknown(message: types.Message):
         await message.answer(
             "❓ <b>Unknown command!</b>\n\n"
             "Send /start to see all available commands.\n"
-            "Send /help for detailed instructions.\n\n"
-            "💎 Powered by @minielite",
+            "Send /help for detailed instructions.\n"
+            "Try /crypto &lt;symbol&gt; for any cryptocurrency!\n\n"
+            "🍦 Powered by @conesociety",
             parse_mode="HTML"
         )
 
 async def main():
-    logger.info("Starting ElitePriceBot...")
+    logger.info("Starting Cone Price Bot...")
+    
+    # Start Binance background updater (30 sec - no rate limit!)
+    asyncio.create_task(binance_updater.start(update_interval=30))
+    
     await set_bot_commands()
     await dp.start_polling(bot)
 

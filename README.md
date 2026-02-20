@@ -1,6 +1,6 @@
-# ElitePriceBot 🚀
+# Cone Price Bot 🍦
 
-A production-ready Telegram bot that generates beautiful crypto price cards for @EliteLeauges.
+A production-ready Telegram bot that generates beautiful crypto price cards for @conesociety.
 
 ## Features
 
@@ -9,8 +9,8 @@ A production-ready Telegram bot that generates beautiful crypto price cards for 
 💎 **Individual Coin Cards** - Detailed price info with 7-day charts
 🏆 **All-Time High Tracking** - ATH prices and dates
 💱 **Currency Converter** - Convert crypto to USD
-⚡ **Fast & Cached** - 30-second cache to avoid API spam
-🎨 **Branded** - Every image includes "Powered by @EliteLeauges"
+⚡ **Fast & Cached** - 15-second cache to avoid API spam
+🎨 **Branded** - Every image includes "Powered by @conesociety"
 
 ## Commands
 
@@ -26,7 +26,7 @@ A production-ready Telegram bot that generates beautiful crypto price cards for 
 
 ```bash
 git clone <your-repo-url>
-cd ElitePriceBot
+cd ConePriceBot
 ```
 
 ### 2. Install dependencies
@@ -53,7 +53,7 @@ BOT_TOKEN=your_telegram_bot_token_here
 
 1. Open Telegram and search for [@BotFather](https://t.me/BotFather)
 2. Send `/newbot` and follow the instructions
-3. Set username to `@ElitePriceBot` (or your preferred name)
+3. Set username to `@ConePriceBot` (or your preferred name)
 4. Copy the token and paste it in `.env`
 
 ### 5. Run the bot
@@ -66,18 +66,18 @@ python bot.py
 
 ### Using systemd (Linux)
 
-Create `/etc/systemd/system/elitepricebot.service`:
+Create `/etc/systemd/system/conepricebot.service`:
 
 ```ini
 [Unit]
-Description=ElitePriceBot Telegram Bot
+Description=Cone Price Bot Telegram Bot
 After=network.target
 
 [Service]
 Type=simple
 User=your_user
-WorkingDirectory=/path/to/ElitePriceBot
-ExecStart=/usr/bin/python3 /path/to/ElitePriceBot/bot.py
+WorkingDirectory=/path/to/ConePriceBot
+ExecStart=/usr/bin/python3 /path/to/ConePriceBot/bot.py
 Restart=always
 RestartSec=10
 
@@ -88,15 +88,15 @@ WantedBy=multi-user.target
 Enable and start:
 
 ```bash
-sudo systemctl enable elitepricebot
-sudo systemctl start elitepricebot
-sudo systemctl status elitepricebot
+sudo systemctl enable conepricebot
+sudo systemctl start conepricebot
+sudo systemctl status conepricebot
 ```
 
 ### Using screen (Quick method)
 
 ```bash
-screen -S elitepricebot
+screen -S conepricebot
 python bot.py
 # Press Ctrl+A then D to detach
 ```
@@ -104,13 +104,13 @@ python bot.py
 Reattach later:
 
 ```bash
-screen -r elitepricebot
+screen -r conepricebot
 ```
 
 ## Project Structure
 
 ```
-ElitePriceBot/
+ConePriceBot/
 ├── bot.py              # Main bot logic
 ├── api.py              # CoinGecko API integration
 ├── image_engine.py     # Image generation with Pillow
@@ -152,7 +152,7 @@ CACHE_TTL = 60  # 60 seconds
 Edit `config.py`:
 
 ```python
-WATERMARK = "Your Brand Here"
+WATERMARK = "Powered by @conesociety"
 ```
 
 ## Troubleshooting
@@ -180,8 +180,8 @@ MIT License - Feel free to modify and use for your projects.
 
 ## Support
 
-For issues or questions, contact @EliteLeauges on Telegram.
+For issues or questions, contact @conesociety on Telegram.
 
 ---
 
-**Powered by @EliteLeauges** 💎
+**🍦 Powered by @conesociety**
