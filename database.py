@@ -85,7 +85,7 @@ def get_stats():
             "users": users
         }
 
-def create_alert(user_id, chat_id, coin_symbol, target_price, direction, created_price):
+def create_alert(user_id, chat_id, coin_symbol, target_price, direction, created_price, message_thread_id=None):
     """Create a new price alert"""
     with _db_lock:
         alerts = load_alerts()
@@ -96,6 +96,7 @@ def create_alert(user_id, chat_id, coin_symbol, target_price, direction, created
             "id": next_id,
             "user_id": int(user_id),
             "chat_id": int(chat_id),
+            "message_thread_id": int(message_thread_id) if message_thread_id is not None else None,
             "coin_symbol": coin_symbol.lower(),
             "target_price": float(target_price),
             "direction": direction,

@@ -45,6 +45,14 @@ async def send_photo_safe(
         logger.warning(f"Falling back to plain caption: {exc}")
         await message.answer_photo(photo, caption=caption)
 
+def get_user_display_tag(message: types.Message) -> str:
+    """Return user mention text for confirmation lines."""
+    if message.from_user.username:
+        return f"@{message.from_user.username}"
+    if message.from_user.first_name:
+        return message.from_user.first_name
+    return "Admin"
+
 async def set_bot_commands():
     """Set bot commands menu"""
     commands = [
@@ -113,7 +121,16 @@ async def alert_monitor_loop():
                         "Set next alert: <code>/alert btc 70000</code>"
                     )
                     try:
-                        await bot.send_message(alert["chat_id"], message_text, parse_mode="HTML")
+                        thread_id = alert.get("message_thread_id")
+                        if thread_id is not None:
+                            await bot.send_message(
+                                alert["chat_id"],
+                                message_text,
+                                parse_mode="HTML",
+                                message_thread_id=thread_id,
+                            )
+                        else:
+                            await bot.send_message(alert["chat_id"], message_text, parse_mode="HTML")
                         mark_alert_triggered(alert_id, current)
                         logger.info(f"Alert {alert_id} triggered for user {alert.get('user_id')}")
                     except Exception as send_exc:
@@ -207,9 +224,9 @@ async def cmd_top(message: types.Message):
         photo = BufferedInputFile(img_bytes.read(), filename=filename)
         
         # Build caption parts
-        part1 = "ðŸª™ "
+        part1 = "\U0001FA99 "
         part2 = "Top 8 Cryptocurrencies\n\n"
-        part3 = "ðŸ¦ Powered by @conesociety"
+        part3 = "\U0001F366 Powered by @conesociety"
         caption = part1 + part2 + part3
         
         # Calculate UTF-16 offset for ice cream emoji
@@ -247,9 +264,9 @@ async def handle_coin_command(message: types.Message, coin_symbol: str):
         logger.info(f"Using premium emoji ID for {coin_symbol}: {premium_id}")
         
         # Build caption parts
-        part1 = "ðŸª™ "
+        part1 = "\U0001FA99 "
         part2 = f"{coin_data['name']} ({coin_data['symbol']})\n\n"
-        part3 = "ðŸ¦ Powered by @conesociety"
+        part3 = "\U0001F366 Powered by @conesociety"
         caption = part1 + part2 + part3
         
         # Calculate UTF-16 offset for ice cream emoji
@@ -341,9 +358,9 @@ async def cmd_crypto(message: types.Message):
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         
         # Build caption parts
-        part1 = "ðŸª™ "
+        part1 = "\U0001FA99 "
         part2 = f"{coin_data['name']} ({coin_data['symbol']})\n\n"
-        part3 = "ðŸ¦ Powered by @conesociety"
+        part3 = "\U0001F366 Powered by @conesociety"
         caption = part1 + part2 + part3
         
         # Calculate UTF-16 offset for ice cream emoji
@@ -540,10 +557,17 @@ async def cmd_alert(message: types.Message):
 
         if args[1].lower() == "clear":
             deleted_count = clear_user_alerts(message.from_user.id, only_active=True)
-            await message.answer(
-                f"✅ Cleared <b>{deleted_count}</b> active alert(s).",
-                parse_mode="HTML",
-            )
+            if message.from_user.id in ADMIN_IDS:
+                admin_tag = get_user_display_tag(message)
+                await message.answer(
+                    f"🐐 <b>The Goat {admin_tag}, {deleted_count} active alert(s) cleared.</b>",
+                    parse_mode="HTML",
+                )
+            else:
+                await message.answer(
+                    f"✅ Cleared <b>{deleted_count}</b> active alert(s).",
+                    parse_mode="HTML",
+                )
             return
 
         if args[1].lower() == "delete":
@@ -558,7 +582,14 @@ async def cmd_alert(message: types.Message):
 
             deleted = delete_user_alert(message.from_user.id, alert_id)
             if deleted:
-                await message.answer(f"✅ Alert <code>{alert_id}</code> deleted.", parse_mode="HTML")
+                if message.from_user.id in ADMIN_IDS:
+                    admin_tag = get_user_display_tag(message)
+                    await message.answer(
+                        f"🐐 <b>The Goat {admin_tag}, your alert <code>{alert_id}</code> is deleted.</b>",
+                        parse_mode="HTML",
+                    )
+                else:
+                    await message.answer(f"✅ Alert <code>{alert_id}</code> deleted.", parse_mode="HTML")
             else:
                 await message.answer("❌ Alert not found (or not yours).")
             return
@@ -637,18 +668,32 @@ async def cmd_alert(message: types.Message):
             target_price=target_price,
             direction=direction,
             created_price=current_price,
+            message_thread_id=message.message_thread_id,
         )
 
-        await message.answer(
-            "✅ <b>Alert created</b>\n\n"
-            f"• ID: <code>{new_alert['id']}</code>\n"
-            f"• Coin: <b>{symbol.upper()}</b>\n"
-            f"• Current: <b>${current_price:,.6f}</b>\n"
-            f"• Target: <b>${target_price:,.6f}</b>\n"
-            f"• Direction: <b>{direction}</b>\n\n"
-            "View all: <code>/alerts</code>",
-            parse_mode="HTML",
-        )
+        if message.from_user.id in ADMIN_IDS:
+            admin_tag = get_user_display_tag(message)
+            await message.answer(
+                f"🐐 <b>The Goat {admin_tag}, your alert is saved.</b>\n\n"
+                f"• ID: <code>{new_alert['id']}</code>\n"
+                f"• Coin: <b>{symbol.upper()}</b>\n"
+                f"• Current: <b>${current_price:,.6f}</b>\n"
+                f"• Target: <b>${target_price:,.6f}</b>\n"
+                f"• Direction: <b>{direction}</b>\n\n"
+                "View all: <code>/alerts</code>",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                "✅ <b>Alert created</b>\n\n"
+                f"• ID: <code>{new_alert['id']}</code>\n"
+                f"• Coin: <b>{symbol.upper()}</b>\n"
+                f"• Current: <b>${current_price:,.6f}</b>\n"
+                f"• Target: <b>${target_price:,.6f}</b>\n"
+                f"• Direction: <b>{direction}</b>\n\n"
+                "View all: <code>/alerts</code>",
+                parse_mode="HTML",
+            )
     except Exception as e:
         logger.error(f"Error in /alert: {e}")
         await message.answer("❌ Failed to create alert.")
@@ -694,9 +739,9 @@ async def cmd_ath(message: types.Message):
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         
         # Build caption parts
-        part1 = "ðŸª™ "
+        part1 = "\U0001FA99 "
         part2 = f"{coin_data['name']} All-Time High\n\n"
-        part3 = "ðŸ¦ Powered by @conesociety"
+        part3 = "\U0001F366 Powered by @conesociety"
         caption = part1 + part2 + part3
         
         # Calculate UTF-16 offset for ice cream emoji
@@ -762,9 +807,9 @@ async def cmd_convert(message: types.Message):
         premium_id = coin_data.get('premium_emoji_id', PREMIUM_EMOJI_ID)
         
         # Build caption parts
-        part1 = "ðŸª™ "
+        part1 = "\U0001FA99 "
         part2 = f"{amount} {coin_data['symbol']} = ${usd_value:,.2f} USD\n\n"
-        part3 = "ðŸ¦ Powered by @conesociety"
+        part3 = "\U0001F366 Powered by @conesociety"
         caption = part1 + part2 + part3
         
         # Calculate UTF-16 offset for ice cream emoji
@@ -847,3 +892,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
