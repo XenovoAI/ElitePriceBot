@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 ALERT_CHECK_INTERVAL = 20
+BOT_USERNAME = ""
 
 async def send_photo_safe(
     message: types.Message,
@@ -888,6 +889,14 @@ async def handle_unknown(message: types.Message):
     if text.startswith("/") and not re.match(r"^/[A-Za-z0-9_]+(@[A-Za-z0-9_]+)?(\s+.*)?$", text):
         return
 
+    # Ignore commands explicitly addressed to another bot, e.g. /balance@cctip_bot
+    if text.startswith("/"):
+        token = text.split()[0]
+        if "@" in token:
+            addressed_bot = token.split("@", 1)[1].lower()
+            if BOT_USERNAME and addressed_bot != BOT_USERNAME:
+                return
+
     if text.startswith('/'):
         await message.answer(
             " <b>Unknown command!</b>\n\n"
@@ -899,7 +908,10 @@ async def handle_unknown(message: types.Message):
         )
 
 async def main():
+    global BOT_USERNAME
     logger.info("Starting Cone Price Bot...")
+    me = await bot.get_me()
+    BOT_USERNAME = (me.username or "").lower()
     
     # Start Binance background updater (30 sec - no rate limit!)
     asyncio.create_task(binance_updater.start(update_interval=30))
