@@ -1,9 +1,12 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
+import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, BotCommand, MessageEntity
-from config import BOT_TOKEN, SUPPORTED_COINS, PREMIUM_EMOJI_ID, ICE_CREAM_EMOJI_ID, ADMIN_IDS
+from aiogram.exceptions import TelegramBadRequest
+from config import BOT_TOKEN, SUPPORTED_COINS, PREMIUM_EMOJI_ID, ICE_CREAM_EMOJI_ID, ADMIN_IDS, LIVECOINWATCH_API_KEY
 from api import get_coin_price, get_all_prices, get_price_chart
 from binance_api import binance_updater
 from image_engine import (
@@ -17,6 +20,19 @@ logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+async def send_photo_safe(
+    message: types.Message,
+    photo: BufferedInputFile,
+    caption: str,
+    entities: list[MessageEntity]
+):
+    """Send photo with custom emoji entities, then fallback without entities if Telegram rejects them."""
+    try:
+        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+    except TelegramBadRequest as exc:
+        logger.warning(f"Falling back to plain caption: {exc}")
+        await message.answer_photo(photo, caption=caption)
 
 async def set_bot_commands():
     """Set bot commands menu"""
@@ -131,7 +147,7 @@ async def cmd_top(message: types.Message):
             MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
-        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        await send_photo_safe(message, photo, caption, entities)
         
     except Exception as e:
         logger.error(f"Error in /top: {e}")
@@ -171,7 +187,7 @@ async def handle_coin_command(message: types.Message, coin_symbol: str):
             MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
-        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        await send_photo_safe(message, photo, caption, entities)
         
     except Exception as e:
         logger.error(f"Error in /{coin_symbol}: {e}")
@@ -265,7 +281,7 @@ async def cmd_crypto(message: types.Message):
             MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
-        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        await send_photo_safe(message, photo, caption, entities)
         
     except Exception as e:
         logger.error(f"Error in /crypto: {e}")
@@ -318,6 +334,87 @@ async def cmd_broadcast(message: types.Message):
         "Would you like me to implement user tracking?",
         parse_mode="HTML"
     )
+
+@dp.message(Command("health"))
+async def cmd_health(message: types.Message):
+    """Admin only - health checks for upstream APIs and bot state."""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    async def check_get(session: aiohttp.ClientSession, url: str, timeout_sec: int = 6):
+        started = asyncio.get_running_loop().time()
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_sec)) as response:
+                elapsed_ms = int((asyncio.get_running_loop().time() - started) * 1000)
+                ok = 200 <= response.status < 300
+                return ok, response.status, elapsed_ms, ""
+        except Exception as exc:
+            elapsed_ms = int((asyncio.get_running_loop().time() - started) * 1000)
+            return False, 0, elapsed_ms, str(exc)
+
+    async def check_lcw(session: aiohttp.ClientSession, timeout_sec: int = 8):
+        if not LIVECOINWATCH_API_KEY:
+            return None, 0, 0, "not configured"
+
+        started = asyncio.get_running_loop().time()
+        url = "https://api.livecoinwatch.com/coins/single"
+        headers = {"content-type": "application/json", "x-api-key": LIVECOINWATCH_API_KEY}
+        payload = {"currency": "USD", "code": "BTC", "meta": False}
+        try:
+            async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=timeout_sec)) as response:
+                elapsed_ms = int((asyncio.get_running_loop().time() - started) * 1000)
+                ok = 200 <= response.status < 300
+                return ok, response.status, elapsed_ms, ""
+        except Exception as exc:
+            elapsed_ms = int((asyncio.get_running_loop().time() - started) * 1000)
+            return False, 0, elapsed_ms, str(exc)
+
+    try:
+        stats = get_stats()
+
+        async with aiohttp.ClientSession() as session:
+            binance_ping = await check_get(session, "https://api.binance.com/api/v3/ping")
+            binance_ticker = await check_get(session, "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT")
+            coingecko_ping = await check_get(session, "https://api.coingecko.com/api/v3/ping")
+            livecoinwatch_ping = await check_lcw(session)
+
+        def fmt_status(label: str, probe):
+            ok, status, ms, err = probe
+            icon = "✅" if ok else "❌"
+            if err:
+                return f"• {label}: {icon} status={status or 'ERR'} ({ms}ms) - {err}"
+            return f"• {label}: {icon} status={status} ({ms}ms)"
+
+        last_update = "never"
+        if binance_updater.last_update:
+            last_update = binance_updater.last_update.isoformat()
+
+        health_lines = [
+            "🩺 <b>Bot Health</b>",
+            "",
+            f"• Checked At (UTC): {datetime.now(timezone.utc).isoformat()}",
+            f"• Updater Running: {'✅' if binance_updater.is_running else '❌'}",
+            f"• Last Price Cache Update: {last_update}",
+            f"• Cached Prices: {len(binance_updater.get_all_prices())}",
+            f"• Cached Charts: {len(binance_updater.chart_data)}",
+            f"• Total Users: {stats.get('total_users', 0)}",
+            f"• Total Commands: {stats.get('total_commands', 0)}",
+            "",
+            "<b>Upstream APIs</b>",
+            fmt_status("Binance /ping", binance_ping),
+            fmt_status("Binance BTC ticker", binance_ticker),
+            fmt_status("CoinGecko /ping", coingecko_ping),
+        ]
+
+        if livecoinwatch_ping[0] is None:
+            health_lines.append("• LiveCoinWatch: ⚪ not configured")
+        else:
+            health_lines.append(fmt_status("LiveCoinWatch BTC", livecoinwatch_ping))
+
+        await message.answer("\n".join(health_lines), parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error in /health: {e}")
+        await message.answer("❌ Failed to run health checks.")
 
 @dp.message(Command("ath"))
 async def cmd_ath(message: types.Message):
@@ -374,7 +471,7 @@ async def cmd_ath(message: types.Message):
             MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
-        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        await send_photo_safe(message, photo, caption, entities)
         
     except Exception as e:
         logger.error(f"Error in /ath: {e}")
@@ -442,7 +539,7 @@ async def cmd_convert(message: types.Message):
             MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID)
         ]
         
-        await message.answer_photo(photo, caption=caption, caption_entities=entities)
+        await send_photo_safe(message, photo, caption, entities)
         
     except Exception as e:
         logger.error(f"Error in /convert: {e}")

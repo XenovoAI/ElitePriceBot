@@ -2,7 +2,14 @@ from binance_api import binance_updater
 
 async def get_all_prices():
     """Get all prices from Binance (instant)"""
-    return binance_updater.get_all_prices()
+    prices = binance_updater.get_all_prices()
+    if prices:
+        return prices
+    # Warm up once on demand so /top doesn't fail right after restart
+    success = await binance_updater.fetch_all_prices()
+    if success:
+        return binance_updater.get_all_prices()
+    return {}
 
 async def get_coin_price(coin_symbol):
     """Get coin details from Binance (instant) - fetches any coin"""

@@ -6,6 +6,7 @@ load_dotenv()
 BOT_TOKEN = "8595180062:AAH2wZNeUZV382OdE3ihp_1rlbEz4fLllSg"
 COINGECKO_API = "https://api.coingecko.com/api/v3"
 CACHE_TTL = 15
+LIVECOINWATCH_API_KEY = os.getenv("LIVECOINWATCH_API_KEY", "")
 
 SUPPORTED_COINS = {
     "btc": {"id": "bitcoin", "name": "Bitcoin", "symbol": "BTC", "color": "#F7931A", "logo_url": "https://cryptologos.cc/logos/bitcoin-btc-logo.png", "premium_emoji_id": "5388686391578220236"},
@@ -27,3 +28,15 @@ ADMIN_IDS = [6369434417]
 DEFAULT_COIN_COLOR = "#888888"
 DEFAULT_LOGO_URL = "https://cryptologos.cc/logos/generic-crypto-logo.png"
 DEFAULT_PREMIUM_EMOJI_ID = "5368324170671202286"
+
+# Fallback symbol map for LiveCoinWatch requests
+LCW_SYMBOL_MAP = {
+    "btc": "BTC",
+    "eth": "ETH",
+    "sol": "SOL",
+    "ton": "TON",
+    "bnb": "BNB",
+    "xrp": "XRP",
+    "trx": "TRX",
+    "ltc": "LTC",
+}
