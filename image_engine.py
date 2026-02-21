@@ -82,99 +82,127 @@ def draw_glassmorphism_card(draw, x, y, w, h, color_rgb, is_positive):
     draw.rounded_rectangle([x, y, x+w, y+h], radius=20, outline=border_color, width=2)
 
 async def create_top_grid_async(prices_data):
-    """Ultra-professional glassmorphism grid"""
-    width, height = 1200, 800
-    
-    # Pure black background
-    img = Image.new('RGB', (width, height), (0, 0, 0))
+    """Top 8 grid with safe spacing and stronger visual hierarchy."""
+    width, height = 1200, 820
+    img = create_gradient_bg(width, height)
     draw = ImageDraw.Draw(img)
-    
+
+    # Ambient background accents
+    accent_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    accent_draw = ImageDraw.Draw(accent_layer)
+    accent_draw.ellipse([-180, -150, 420, 380], fill=(12, 140, 255, 38))
+    accent_draw.ellipse([820, -130, 1400, 420], fill=(0, 220, 170, 32))
+    accent_draw.ellipse([330, 560, 940, 1040], fill=(255, 120, 0, 24))
+    img = Image.alpha_composite(img.convert('RGBA'), accent_layer).convert('RGB')
+    draw = ImageDraw.Draw(img)
+
     coins = ["btc", "eth", "sol", "ton", "ltc", "xrp", "bnb", "trx"]
-    tile_w, tile_h = 280, 280
-    padding, start_x, start_y = 25, 40, 60
-    
+    cols, rows = 4, 2
+    margin_x = 34
+    gap = 22
+    grid_top = 108
+    tile_w = (width - (2 * margin_x) - ((cols - 1) * gap)) // cols
+    tile_h = 285
+
+    def format_price(price):
+        if price >= 1000:
+            return f"${price:,.0f}"
+        if price >= 1:
+            return f"${price:,.2f}"
+        if price >= 0.01:
+            return f"${price:,.4f}"
+        return f"${price:,.6f}"
+
+    # Header
+    title = "CONE MARKET BOARD"
+    subtitle = "Top 8 coins • live 24h change"
+    font_title = get_font(26, bold=True)
+    font_subtitle = get_font(12, bold=False)
+    tw = draw.textbbox((0, 0), title, font=font_title)[2]
+    sw = draw.textbbox((0, 0), subtitle, font=font_subtitle)[2]
+    draw.text(((width - tw) // 2, 28), title, fill="#EAF2FF", font=font_title)
+    draw.text(((width - sw) // 2, 70), subtitle, fill="#9AA7BD", font=font_subtitle)
+
     for idx, coin in enumerate(coins):
         if coin not in prices_data:
             continue
-        
+
         data = prices_data[coin]
-        row, col = idx // 4, idx % 4
-        x = start_x + col * (tile_w + padding)
-        y = start_y + row * (tile_h + padding)
-        
+        row, col = idx // cols, idx % cols
+        x = margin_x + col * (tile_w + gap)
+        y = grid_top + row * (tile_h + gap)
         change = data["change_24h"]
-        color_rgb = hex_to_rgb(data["color"])
-        
-        # Outer glow (colored border)
-        glow_color = color_rgb
-        for i in range(4, 0, -1):
-            alpha = int(255 * (i / 4))
-            glow_rgb = tuple(int(c * (i / 4)) for c in glow_color)
-            draw.rounded_rectangle([x-i, y-i, x+tile_w+i, y+tile_h+i], 
-                                  radius=25, outline=glow_rgb, width=2)
-        
-        # Glassmorphism card
-        # Dark gradient background
+        color_rgb = hex_to_rgb(data.get("color", "#888888"))
+
+        # Colored glow (clipped to frame-safe bounds)
+        for i in range(5, 0, -1):
+            glow = tuple(int(c * (i / 9)) for c in color_rgb)
+            draw.rounded_rectangle(
+                [x - i, y - i, x + tile_w + i, y + tile_h + i],
+                radius=28,
+                outline=glow,
+                width=2,
+            )
+
+        # Card body gradient
         for dy in range(tile_h):
-            ratio = dy / tile_h
-            r = int(40 + (60 - 40) * ratio)
-            g = int(45 + (65 - 45) * ratio)
-            b = int(50 + (70 - 50) * ratio)
+            ratio = dy / max(1, tile_h - 1)
+            r = int(30 + (44 - 30) * ratio)
+            g = int(36 + (54 - 36) * ratio)
+            b = int(44 + (70 - 44) * ratio)
             draw.line([(x, y + dy), (x + tile_w, y + dy)], fill=(r, g, b))
-        
-        # Rounded mask
+
+        # Rounded clip
         mask = Image.new('L', (tile_w, tile_h), 0)
         mask_draw = ImageDraw.Draw(mask)
-        mask_draw.rounded_rectangle([0, 0, tile_w, tile_h], radius=22, fill=255)
-        
-        # Apply mask
+        mask_draw.rounded_rectangle([0, 0, tile_w, tile_h], radius=24, fill=255)
         card_img = img.crop((x, y, x + tile_w, y + tile_h))
         img.paste(card_img, (x, y), mask)
-        
-        # Redraw on main image
         draw = ImageDraw.Draw(img)
-        
+
+        # Top accent strip
+        strip = tuple(min(255, int(c * 1.25)) for c in color_rgb)
+        draw.rounded_rectangle([x + 14, y + 14, x + tile_w - 14, y + 24], radius=6, fill=strip)
+
         # Logo
         logo_url = data.get("logo_url")
+        logo_size = 58
         if logo_url:
-            logo = await download_logo(logo_url, 60)
+            logo = await download_logo(logo_url, logo_size)
             if logo:
-                logo_x = x + (tile_w - 60) // 2
-                logo_y = y + 25
-                img.paste(logo, (logo_x, logo_y), logo)
-        
-        # Symbol (below logo)
-        font_symbol = get_font(28, bold=True)
-        symbol_color = (200, 210, 220)
-        bbox_symbol = draw.textbbox((0, 0), data["symbol"], font=font_symbol)
-        symbol_width = bbox_symbol[2] - bbox_symbol[0]
-        draw.text((x + (tile_w - symbol_width)//2, y + 105), data["symbol"], fill=symbol_color, font=font_symbol)
-        
+                img.paste(logo, (x + (tile_w - logo_size) // 2, y + 36), logo)
+
+        # Symbol
+        font_symbol = get_font(24, bold=True)
+        symbol = data.get("symbol", coin.upper())
+        symbol_w = draw.textbbox((0, 0), symbol, font=font_symbol)[2]
+        draw.text((x + (tile_w - symbol_w) // 2, y + 108), symbol, fill="#E9EFF9", font=font_symbol)
+
         # Price
-        font_price = get_font(22, bold=True)
-        price_text = f"${data['price']:,.2f}" if data['price'] < 1000 else f"${data['price']:,.0f}"
-        
-        # Center price
-        bbox = draw.textbbox((0, 0), price_text, font=font_price)
-        price_width = bbox[2] - bbox[0]
-        draw.text((x + (tile_w - price_width)//2, y + 165), price_text, fill='#FFFFFF', font=font_price)
-        
-        # Change percentage
-        font_change = get_font(18, bold=True)
-        change_color = '#00FF88' if change >= 0 else '#FF4444'
+        font_price = get_font(20, bold=True)
+        price_text = format_price(float(data["price"]))
+        price_w = draw.textbbox((0, 0), price_text, font=font_price)[2]
+        draw.text((x + (tile_w - price_w) // 2, y + 164), price_text, fill="#FFFFFF", font=font_price)
+
+        # Change pill
+        font_change = get_font(16, bold=True)
         change_text = f"{'+' if change >= 0 else ''}{change:.2f}%"
-        
-        # Center change
-        bbox_change = draw.textbbox((0, 0), change_text, font=font_change)
-        change_width = bbox_change[2] - bbox_change[0]
-        draw.text((x + (tile_w - change_width)//2, y + 220), change_text, fill=change_color, font=font_change)
-    
-    # Watermark with timestamp (prevents Telegram cache in groups)
+        change_color = "#00F29A" if change >= 0 else "#FF5A5F"
+        pill_bg = (8, 62, 43) if change >= 0 else (77, 24, 30)
+        text_w = draw.textbbox((0, 0), change_text, font=font_change)[2]
+        pill_w, pill_h = max(122, text_w + 34), 42
+        px = x + (tile_w - pill_w) // 2
+        py = y + 218
+        draw.rounded_rectangle([px, py, px + pill_w, py + pill_h], radius=20, fill=pill_bg, outline=change_color, width=2)
+        draw.text((px + (pill_w - text_w) // 2, py + 8), change_text, fill=change_color, font=font_change)
+
+    # Footer watermark
     font_watermark = get_font(11)
     timestamp = datetime.now().strftime("%H:%M:%S")
     watermark_text = f"{WATERMARK} • {timestamp}"
-    draw.text(((width - 280) // 2, height - 35), watermark_text, fill='#555555', font=font_watermark)
-    
+    ww = draw.textbbox((0, 0), watermark_text, font=font_watermark)[2]
+    draw.text(((width - ww) // 2, height - 34), watermark_text, fill="#76839B", font=font_watermark)
+
     return img
 
 async def create_coin_card_async(coin_data, chart_data=None):
