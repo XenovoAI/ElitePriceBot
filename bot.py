@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime, timezone
 import aiohttp
+import re
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, BotCommand, MessageEntity
@@ -112,12 +113,12 @@ async def alert_monitor_loop():
 
                 if crossed:
                     message_text = (
-                        "🔔 <b>Price Alert Triggered</b>\n\n"
-                        f"• Coin: <b>{symbol.upper()}</b>\n"
-                        f"• Target: <b>${target:,.6f}</b>\n"
-                        f"• Current: <b>${current:,.6f}</b>\n"
-                        f"• Direction: <b>{direction}</b>\n"
-                        f"• Alert ID: <code>{alert_id}</code>\n\n"
+                        " <b>Price Alert Triggered</b>\n\n"
+                        f" Coin: <b>{symbol.upper()}</b>\n"
+                        f" Target: <b>${target:,.6f}</b>\n"
+                        f" Current: <b>${current:,.6f}</b>\n"
+                        f" Direction: <b>{direction}</b>\n"
+                        f" Alert ID: <code>{alert_id}</code>\n\n"
                         "Set next alert: <code>/alert btc 70000</code>"
                     )
                     try:
@@ -159,33 +160,33 @@ async def cmd_start(message: types.Message):
     # Track user
     add_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     
-    welcome_text = """ðŸš€ <b>Welcome to Cone Price Bot!</b>
+    welcome_text = """ <b>Welcome to Cone Price Bot!</b>
 
 Get beautiful crypto price cards instantly.
 
-<b>ðŸ“Š Available Commands:</b>
+<b> Available Commands:</b>
 
 <b>Price Cards:</b>
-â€¢ /top - View top 8 coins in a grid
-â€¢ /crypto &lt;symbol&gt; - ANY cryptocurrency!
-â€¢ /btc, /eth, /sol, /ton, /bnb, /xrp, /trx, /ltc
+ /top - View top 8 coins in a grid
+ /crypto &lt;symbol&gt; - ANY cryptocurrency!
+ /btc, /eth, /sol, /ton, /bnb, /xrp, /trx, /ltc
 
 <b>Advanced:</b>
-â€¢ /ath &lt;coin&gt; - All-time high info
-â€¢ /convert &lt;amount&gt; &lt;coin&gt; - Convert to USD
+ /ath &lt;coin&gt; - All-time high info
+ /convert &lt;amount&gt; &lt;coin&gt; - Convert to USD
 
 <b>Examples:</b>
-â€¢ /crypto doge
-â€¢ /crypto shib
-â€¢ /crypto ada
+ /crypto doge
+ /crypto shib
+ /crypto ada
 
-<b>ðŸ¦ Powered by @conesociety</b>
+<b> Powered by @conesociety</b>
 <b>Supports 1000+ coins from Binance!</b>"""
     await message.answer(welcome_text, parse_mode="HTML")
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
-    help_text = """<b>ðŸ“– Cone Price Bot Help</b>
+    help_text = """<b> Cone Price Bot Help</b>
 
 <b>How to use:</b>
 
@@ -193,20 +194,20 @@ async def cmd_help(message: types.Message):
 Send /top to see a beautiful grid of all 8 supported cryptocurrencies with live prices and 24h changes.
 
 <b>2. Individual Coin Cards:</b>
-â€¢ /btc - â‚¿ Bitcoin
-â€¢ /eth - Îž Ethereum
-â€¢ /sol - â—Ž Solana
-â€¢ /ton - ðŸ’Ž Toncoin
-â€¢ /bnb - ðŸ”¶ BNB
-â€¢ /xrp - âœ• XRP
-â€¢ /trx - âš¡ TRON
-â€¢ /ltc - Å Litecoin
+ /btc -  Bitcoin
+ /eth -  Ethereum
+ /sol -  Solana
+ /ton -  Toncoin
+ /bnb -  BNB
+ /xrp -  XRP
+ /trx -  TRON
+ /ltc -  Litecoin
 
 Each card shows:
-â€¢ Current price
-â€¢ 24h change
-â€¢ 7-day change
-â€¢ Price chart
+ Current price
+ 24h change
+ 7-day change
+ Price chart
 
 <b>3. All-Time High:</b>
 Send /ath followed by coin symbol
@@ -216,7 +217,7 @@ Example: /ath sol
 Send /convert followed by amount and coin
 Example: /convert 20 ton
 
-<b>ðŸ¦ Powered by @conesociety</b>"""
+<b> Powered by @conesociety</b>"""
     await message.answer(help_text, parse_mode="HTML")
 
 @dp.message(Command("top"))
@@ -224,7 +225,7 @@ async def cmd_top(message: types.Message):
     try:
         prices = await get_all_prices()
         if not prices:
-            await message.answer("âŒ Failed to fetch prices. Please try again.")
+            await message.answer(" Failed to fetch prices. Please try again.")
             return
         
         img = await create_top_grid_async(prices)
@@ -254,13 +255,13 @@ async def cmd_top(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /top: {e}")
-        await message.answer("âŒ An error occurred. Please try again.")
+        await message.answer(" An error occurred. Please try again.")
 
 async def handle_coin_command(message: types.Message, coin_symbol: str):
     try:
         coin_data = await get_coin_price(coin_symbol)
         if not coin_data:
-            await message.answer(f"âŒ Failed to fetch {coin_symbol.upper()} data.")
+            await message.answer(f" Failed to fetch {coin_symbol.upper()} data.")
             return
         
         chart_data = await get_price_chart(coin_symbol, days=7)
@@ -294,7 +295,7 @@ async def handle_coin_command(message: types.Message, coin_symbol: str):
         
     except Exception as e:
         logger.error(f"Error in /{coin_symbol}: {e}")
-        await message.answer("âŒ An error occurred. Please try again.")
+        await message.answer(" An error occurred. Please try again.")
 
 @dp.message(Command("btc"))
 async def cmd_btc(message: types.Message):
@@ -338,13 +339,13 @@ async def cmd_crypto(message: types.Message):
         args = message.text.split()
         if len(args) < 2:
             await message.answer(
-                "âŒ <b>Invalid format!</b>\n\n"
+                " <b>Invalid format!</b>\n\n"
                 "<b>Usage:</b> /crypto &lt;symbol&gt;\n\n"
                 "<b>Examples:</b>\n"
-                "â€¢ /crypto doge\n"
-                "â€¢ /crypto shib\n"
-                "â€¢ /crypto ada\n"
-                "â€¢ /crypto avax\n\n"
+                " /crypto doge\n"
+                " /crypto shib\n"
+                " /crypto ada\n"
+                " /crypto avax\n\n"
                 "<b>Supports 1000+ coins from Binance!</b>",
                 parse_mode="HTML"
             )
@@ -355,7 +356,7 @@ async def cmd_crypto(message: types.Message):
         # Fetch coin data
         coin_data = await get_coin_price(coin_symbol)
         if not coin_data:
-            await message.answer(f"âŒ Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
+            await message.answer(f" Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
             return
         
         chart_data = await get_price_chart(coin_symbol, days=7)
@@ -388,7 +389,7 @@ async def cmd_crypto(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /crypto: {e}")
-        await message.answer("âŒ An error occurred. Please try again or check if the coin symbol is correct.")
+        await message.answer(" An error occurred. Please try again or check if the coin symbol is correct.")
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: types.Message):
@@ -399,26 +400,26 @@ async def cmd_stats(message: types.Message):
     try:
         stats = get_stats()
         
-        stats_text = f"""ðŸ“Š <b>Bot Statistics</b>
+        stats_text = f""" <b>Bot Statistics</b>
 
-<b>ðŸ‘¥ Users:</b>
-â€¢ Total Users: {stats['total_users']}
-â€¢ Total Commands: {stats['total_commands']}
+<b> Users:</b>
+ Total Users: {stats['total_users']}
+ Total Commands: {stats['total_commands']}
 
-<b>âš™ï¸ System:</b>
-â€¢ Status: âœ… Running
-â€¢ Supported Coins: {len(SUPPORTED_COINS)} + 1000+ via /crypto
-â€¢ Update Interval: 30 seconds
-â€¢ API: Binance (No rate limits)
+<b> System:</b>
+ Status:  Running
+ Supported Coins: {len(SUPPORTED_COINS)} + 1000+ via /crypto
+ Update Interval: 30 seconds
+ API: Binance (No rate limits)
 
-<b>ðŸ“‹ Commands:</b>
-â€¢ /top - Grid view
-â€¢ /crypto &lt;symbol&gt; - Any coin
-â€¢ Individual: /btc, /eth, /sol, etc.
-â€¢ /ath &lt;coin&gt; - ATH info
-â€¢ /convert &lt;amount&gt; &lt;coin&gt; - Converter
+<b> Commands:</b>
+ /top - Grid view
+ /crypto &lt;symbol&gt; - Any coin
+ Individual: /btc, /eth, /sol, etc.
+ /ath &lt;coin&gt; - ATH info
+ /convert &lt;amount&gt; &lt;coin&gt; - Converter
 
-ðŸ¦ Powered by @conesociety"""
+ Powered by @conesociety"""
         
         await message.answer(stats_text, parse_mode="HTML")
     except Exception as e:
@@ -432,7 +433,7 @@ async def cmd_broadcast(message: types.Message):
         return
     
     await message.answer(
-        "ðŸ“¢ <b>Broadcast Feature</b>\n\n"
+        " <b>Broadcast Feature</b>\n\n"
         "This feature requires a user database.\n"
         "Would you like me to implement user tracking?",
         parse_mode="HTML"
@@ -483,26 +484,26 @@ async def cmd_health(message: types.Message):
 
         def fmt_status(label: str, probe):
             ok, status, ms, err = probe
-            icon = "âœ…" if ok else "âŒ"
+            icon = "OK" if ok else "X"
             if err:
-                return f"â€¢ {label}: {icon} status={status or 'ERR'} ({ms}ms) - {err}"
-            return f"â€¢ {label}: {icon} status={status} ({ms}ms)"
+                return f"- {label}: {icon} status={status or 'ERR'} ({ms}ms) - {err}"
+            return f"- {label}: {icon} status={status} ({ms}ms)"
 
         last_update = "never"
         if binance_updater.last_update:
             last_update = binance_updater.last_update.isoformat()
 
         health_lines = [
-            "ðŸ©º <b>Bot Health</b>",
+            "<b>Bot Health</b>",
             "",
-            f"â€¢ Checked At (UTC): {datetime.now(timezone.utc).isoformat()}",
-            f"â€¢ Updater Running: {'âœ…' if binance_updater.is_running else 'âŒ'}",
-            f"â€¢ Last Price Cache Update: {last_update}",
-            f"â€¢ Cached Prices: {len(binance_updater.get_all_prices())}",
-            f"â€¢ Cached Charts: {len(binance_updater.chart_data)}",
-            f"â€¢ Active Alerts: {len(get_active_alerts())}",
-            f"â€¢ Total Users: {stats.get('total_users', 0)}",
-            f"â€¢ Total Commands: {stats.get('total_commands', 0)}",
+            f"- Checked At (UTC): {datetime.now(timezone.utc).isoformat()}",
+            f"- Updater Running: {'Running' if binance_updater.is_running else 'Stopped'}",
+            f"- Last Price Cache Update: {last_update}",
+            f"- Cached Prices: {len(binance_updater.get_all_prices())}",
+            f"- Cached Charts: {len(binance_updater.chart_data)}",
+            f"- Active Alerts: {len(get_active_alerts())}",
+            f"- Total Users: {stats.get('total_users', 0)}",
+            f"- Total Commands: {stats.get('total_commands', 0)}",
             "",
             "<b>Upstream APIs</b>",
             fmt_status("Binance /ping", binance_ping),
@@ -511,14 +512,14 @@ async def cmd_health(message: types.Message):
         ]
 
         if livecoinwatch_ping[0] is None:
-            health_lines.append("â€¢ LiveCoinWatch: âšª not configured")
+            health_lines.append("- LiveCoinWatch: INFO not configured")
         else:
             health_lines.append(fmt_status("LiveCoinWatch BTC", livecoinwatch_ping))
 
         await message.answer("\n".join(health_lines), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error in /health: {e}")
-        await message.answer("âŒ Failed to run health checks.")
+        await message.answer(" Failed to run health checks.")
 
 @dp.message(Command("alerts"))
 async def cmd_alerts(message: types.Message):
@@ -528,17 +529,17 @@ async def cmd_alerts(message: types.Message):
         alerts = list_user_alerts(message.from_user.id, only_active=True)
         if not alerts:
             await message.answer(
-                "📋 <b>Your active alerts: 0</b>\n\n"
+                " <b>Your active alerts: 0</b>\n\n"
                 "Create one with:\n"
                 "<code>/alert btc 70000</code>",
                 parse_mode="HTML",
             )
             return
 
-        lines = ["📋 <b>Your Active Alerts</b>", ""]
+        lines = [" <b>Your Active Alerts</b>", ""]
         for a in alerts:
             lines.append(
-                f"• ID <code>{a['id']}</code> | <b>{a['coin_symbol'].upper()}</b> "
+                f" ID <code>{a['id']}</code> | <b>{a['coin_symbol'].upper()}</b> "
                 f"{a['direction']} <b>${a['target_price']:,.6f}</b>"
             )
         lines.append("")
@@ -546,7 +547,7 @@ async def cmd_alerts(message: types.Message):
         await message.answer("\n".join(lines), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error in /alerts: {e}")
-        await message.answer("❌ Failed to fetch alerts.")
+        await message.answer(" Failed to fetch alerts.")
 
 @dp.message(Command("alert"))
 async def cmd_alert(message: types.Message):
@@ -556,7 +557,7 @@ async def cmd_alert(message: types.Message):
         args = message.text.split()
         if len(args) < 2:
             await message.answer(
-                "🔔 <b>Price Alert</b>\n\n"
+                " <b>Price Alert</b>\n\n"
                 "<b>Create:</b> <code>/alert btc 70000</code>\n"
                 "<b>Create (explicit):</b> <code>/alert btc 70000 above</code>\n"
                 "<b>Delete:</b> <code>/alert delete 3</code>\n"
@@ -572,24 +573,24 @@ async def cmd_alert(message: types.Message):
             if message.from_user.id in ADMIN_IDS:
                 admin_tag = get_user_display_tag(message)
                 await message.answer(
-                    f"🐐 <b>The Goat {admin_tag}, {deleted_count} active alert(s) cleared.</b>",
+                    f" <b>The Goat {admin_tag}, {deleted_count} active alert(s) cleared.</b>",
                     parse_mode="HTML",
                 )
             else:
                 await message.answer(
-                    f"✅ Cleared <b>{deleted_count}</b> active alert(s).",
+                    f" Cleared <b>{deleted_count}</b> active alert(s).",
                     parse_mode="HTML",
                 )
             return
 
         if args[1].lower() == "delete":
             if len(args) < 3:
-                await message.answer("❌ Usage: <code>/alert delete 3</code>", parse_mode="HTML")
+                await message.answer(" Usage: <code>/alert delete 3</code>", parse_mode="HTML")
                 return
             try:
                 alert_id = int(args[2])
             except ValueError:
-                await message.answer("❌ Alert ID must be a number.")
+                await message.answer(" Alert ID must be a number.")
                 return
 
             deleted = delete_user_alert(message.from_user.id, alert_id)
@@ -597,18 +598,18 @@ async def cmd_alert(message: types.Message):
                 if message.from_user.id in ADMIN_IDS:
                     admin_tag = get_user_display_tag(message)
                     await message.answer(
-                        f"🐐 <b>The Goat {admin_tag}, your alert <code>{alert_id}</code> is deleted.</b>",
+                        f" <b>The Goat {admin_tag}, your alert <code>{alert_id}</code> is deleted.</b>",
                         parse_mode="HTML",
                     )
                 else:
-                    await message.answer(f"✅ Alert <code>{alert_id}</code> deleted.", parse_mode="HTML")
+                    await message.answer(f" Alert <code>{alert_id}</code> deleted.", parse_mode="HTML")
             else:
-                await message.answer("❌ Alert not found (or not yours).")
+                await message.answer(" Alert not found (or not yours).")
             return
 
         if len(args) < 3:
             await message.answer(
-                "❌ Usage: <code>/alert btc 70000</code>\n"
+                " Usage: <code>/alert btc 70000</code>\n"
                 "or <code>/alert btc 70000 above</code>",
                 parse_mode="HTML",
             )
@@ -620,13 +621,13 @@ async def cmd_alert(message: types.Message):
             if target_price <= 0:
                 raise ValueError
         except ValueError:
-            await message.answer("❌ Invalid target price. Example: <code>/alert btc 70000</code>", parse_mode="HTML")
+            await message.answer(" Invalid target price. Example: <code>/alert btc 70000</code>", parse_mode="HTML")
             return
 
         coin_data = await get_coin_price(symbol)
         if not coin_data:
             await message.answer(
-                f"❌ Coin <b>{symbol.upper()}</b> not found.\n"
+                f" Coin <b>{symbol.upper()}</b> not found.\n"
                 "Use valid symbol like btc, eth, ton, doge, pepe...",
                 parse_mode="HTML",
             )
@@ -634,7 +635,7 @@ async def cmd_alert(message: types.Message):
 
         current_price = float(coin_data.get("price", 0))
         if current_price <= 0:
-            await message.answer("❌ Unable to fetch current price. Try again in a moment.")
+            await message.answer(" Unable to fetch current price. Try again in a moment.")
             return
 
         explicit_direction = None
@@ -651,7 +652,7 @@ async def cmd_alert(message: types.Message):
             explicit_direction = direction_map.get(direction_arg)
             if not explicit_direction:
                 await message.answer(
-                    "❌ Invalid direction. Use <code>above</code> or <code>below</code>.\n"
+                    " Invalid direction. Use <code>above</code> or <code>below</code>.\n"
                     "Example: <code>/alert btc 70000 above</code>",
                     parse_mode="HTML",
                 )
@@ -661,7 +662,7 @@ async def cmd_alert(message: types.Message):
 
         user_active_alerts = list_user_alerts(message.from_user.id, only_active=True)
         if len(user_active_alerts) >= 20:
-            await message.answer("❌ Max 20 active alerts allowed per user.")
+            await message.answer(" Max 20 active alerts allowed per user.")
             return
 
         for a in user_active_alerts:
@@ -670,7 +671,7 @@ async def cmd_alert(message: types.Message):
                 and float(a["target_price"]) == float(target_price)
                 and a["direction"] == direction
             ):
-                await message.answer("⚠️ Same alert already exists.")
+                await message.answer(" Same alert already exists.")
                 return
 
         new_alert = create_alert(
@@ -686,29 +687,29 @@ async def cmd_alert(message: types.Message):
         if message.from_user.id in ADMIN_IDS:
             admin_tag = get_user_display_tag(message)
             await message.answer(
-                f"🐐 <b>The Goat {admin_tag}, your alert is saved.</b>\n\n"
-                f"• ID: <code>{new_alert['id']}</code>\n"
-                f"• Coin: <b>{symbol.upper()}</b>\n"
-                f"• Current: <b>${current_price:,.6f}</b>\n"
-                f"• Target: <b>${target_price:,.6f}</b>\n"
-                f"• Direction: <b>{direction}</b>\n\n"
+                f" <b>The Goat {admin_tag}, your alert is saved.</b>\n\n"
+                f" ID: <code>{new_alert['id']}</code>\n"
+                f" Coin: <b>{symbol.upper()}</b>\n"
+                f" Current: <b>${current_price:,.6f}</b>\n"
+                f" Target: <b>${target_price:,.6f}</b>\n"
+                f" Direction: <b>{direction}</b>\n\n"
                 "View all: <code>/alerts</code>",
                 parse_mode="HTML",
             )
         else:
             await message.answer(
-                "✅ <b>Alert created</b>\n\n"
-                f"• ID: <code>{new_alert['id']}</code>\n"
-                f"• Coin: <b>{symbol.upper()}</b>\n"
-                f"• Current: <b>${current_price:,.6f}</b>\n"
-                f"• Target: <b>${target_price:,.6f}</b>\n"
-                f"• Direction: <b>{direction}</b>\n\n"
+                " <b>Alert created</b>\n\n"
+                f" ID: <code>{new_alert['id']}</code>\n"
+                f" Coin: <b>{symbol.upper()}</b>\n"
+                f" Current: <b>${current_price:,.6f}</b>\n"
+                f" Target: <b>${target_price:,.6f}</b>\n"
+                f" Direction: <b>{direction}</b>\n\n"
                 "View all: <code>/alerts</code>",
                 parse_mode="HTML",
             )
     except Exception as e:
         logger.error(f"Error in /alert: {e}")
-        await message.answer("❌ Failed to create alert.")
+        await message.answer(" Failed to create alert.")
 
 @dp.message(Command("ath"))
 async def cmd_ath(message: types.Message):
@@ -720,14 +721,14 @@ async def cmd_ath(message: types.Message):
         args = message.text.split()
         if len(args) < 2:
             await message.answer(
-                "âŒ <b>Invalid format!</b>\n\n"
+                " <b>Invalid format!</b>\n\n"
                 "<b>Usage:</b> /ath &lt;coin&gt;\n\n"
                 "<b>Examples:</b>\n"
-                "â€¢ /ath sol\n"
-                "â€¢ /ath btc\n"
-                "â€¢ /ath eth\n"
-                "â€¢ /ath doge\n"
-                "â€¢ /ath sui\n\n"
+                " /ath sol\n"
+                " /ath btc\n"
+                " /ath eth\n"
+                " /ath doge\n"
+                " /ath sui\n\n"
                 "<b>Supports 1000+ coins from Binance!</b>",
                 parse_mode="HTML"
             )
@@ -738,7 +739,7 @@ async def cmd_ath(message: types.Message):
         # Fetch coin data (works for any coin)
         coin_data = await get_coin_price(coin_symbol)
         if not coin_data:
-            await message.answer(f"âŒ Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
+            await message.answer(f" Coin '{coin_symbol.upper()}' not found on Binance.\n\nMake sure the symbol is correct (e.g., 'doge' not 'dogecoin')")
             return
         
         img = await create_ath_card_async(coin_data)
@@ -769,7 +770,7 @@ async def cmd_ath(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /ath: {e}")
-        await message.answer("âŒ An error occurred. Please try again or check if the coin symbol is correct.")
+        await message.answer(" An error occurred. Please try again or check if the coin symbol is correct.")
 
 @dp.message(Command("convert"))
 async def cmd_convert(message: types.Message):
@@ -777,12 +778,12 @@ async def cmd_convert(message: types.Message):
         args = message.text.split()
         if len(args) < 3:
             await message.answer(
-                "âŒ <b>Invalid format!</b>\n\n"
+                " <b>Invalid format!</b>\n\n"
                 "<b>Usage:</b> /convert &lt;amount&gt; &lt;coin&gt;\n\n"
                 "<b>Examples:</b>\n"
-                "â€¢ /convert 20 ton\n"
-                "â€¢ /convert 0.5 btc\n"
-                "â€¢ /convert 100 xrp\n\n"
+                " /convert 20 ton\n"
+                " /convert 0.5 btc\n"
+                " /convert 100 xrp\n\n"
                 "<b>Supported coins:</b> btc, eth, sol, ton, bnb, xrp, trx, ltc",
                 parse_mode="HTML"
             )
@@ -791,13 +792,13 @@ async def cmd_convert(message: types.Message):
         try:
             amount = float(args[1])
         except ValueError:
-            await message.answer("âŒ Invalid amount. Please enter a valid number.")
+            await message.answer(" Invalid amount. Please enter a valid number.")
             return
         
         coin_symbol = args[2].lower()
         if coin_symbol not in SUPPORTED_COINS:
             await message.answer(
-                f"âŒ <b>Unsupported coin!</b>\n\n"
+                f" <b>Unsupported coin!</b>\n\n"
                 f"<b>Supported coins:</b> {', '.join(SUPPORTED_COINS.keys())}",
                 parse_mode="HTML"
             )
@@ -805,7 +806,7 @@ async def cmd_convert(message: types.Message):
         
         coin_data = await get_coin_price(coin_symbol)
         if not coin_data:
-            await message.answer(f"âŒ Failed to fetch {coin_symbol.upper()} data. Please try again.")
+            await message.answer(f" Failed to fetch {coin_symbol.upper()} data. Please try again.")
             return
         
         img = await create_convert_card_async(coin_data, amount)
@@ -837,7 +838,7 @@ async def cmd_convert(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /convert: {e}")
-        await message.answer("âŒ An error occurred. Please try again.")
+        await message.answer(" An error occurred. Please try again.")
 
 @dp.message(Command("price"))
 async def cmd_price(message: types.Message):
@@ -846,7 +847,7 @@ async def cmd_price(message: types.Message):
         args = message.text.split()
         if len(args) < 2:
             await message.answer(
-                "âŒ <b>Usage:</b> /price &lt;coin&gt;\n\n"
+                " <b>Usage:</b> /price &lt;coin&gt;\n\n"
                 "<b>Example:</b> /price btc\n\n"
                 "Or use individual commands like /btc for detailed cards!",
                 parse_mode="HTML"
@@ -856,7 +857,7 @@ async def cmd_price(message: types.Message):
         coin_symbol = args[1].lower()
         if coin_symbol not in SUPPORTED_COINS:
             await message.answer(
-                f"âŒ <b>Unsupported coin!</b>\n\n"
+                f" <b>Unsupported coin!</b>\n\n"
                 f"<b>Supported:</b> {', '.join(SUPPORTED_COINS.keys())}",
                 parse_mode="HTML"
             )
@@ -866,7 +867,7 @@ async def cmd_price(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /price: {e}")
-        await message.answer("âŒ An error occurred. Please try again.")
+        await message.answer(" An error occurred. Please try again.")
 
 @dp.message()
 async def handle_unknown(message: types.Message):
@@ -879,16 +880,21 @@ async def handle_unknown(message: types.Message):
         return
 
     text = message.text.strip()
-    if text in {"/", "//"}:
+    # Ignore empty slash-only inputs: "/", "/ ", "//", "///", etc.
+    if re.fullmatch(r"/+\s*", text):
+        return
+
+    # Ignore malformed slash inputs without a real command token.
+    if text.startswith("/") and not re.match(r"^/[A-Za-z0-9_]+(@[A-Za-z0-9_]+)?(\s+.*)?$", text):
         return
 
     if text.startswith('/'):
         await message.answer(
-            "â“ <b>Unknown command!</b>\n\n"
+            " <b>Unknown command!</b>\n\n"
             "Send /start to see all available commands.\n"
             "Send /help for detailed instructions.\n"
             "Try /crypto &lt;symbol&gt; for any cryptocurrency!\n\n"
-            "ðŸ¦ Powered by @conesociety",
+            " Powered by @conesociety",
             parse_mode="HTML"
         )
 
@@ -904,5 +910,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
