@@ -5,7 +5,7 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, BotCommand, MessageEntity
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from config import BOT_TOKEN, SUPPORTED_COINS, PREMIUM_EMOJI_ID, ICE_CREAM_EMOJI_ID, ADMIN_IDS, LIVECOINWATCH_API_KEY
 from api import get_coin_price, get_all_prices, get_price_chart
 from binance_api import binance_updater
@@ -56,17 +56,17 @@ def get_user_display_tag(message: types.Message) -> str:
 async def set_bot_commands():
     """Set bot commands menu"""
     commands = [
-        BotCommand(command="start", description="ðŸš€ Start the bot"),
-        BotCommand(command="help", description="ðŸ“– Help & instructions"),
-        BotCommand(command="top", description="ðŸ“Š Top 8 coins grid"),
-        BotCommand(command="btc", description="â‚¿ Bitcoin price"),
-        BotCommand(command="eth", description="Îž Ethereum price"),
-        BotCommand(command="sol", description="â—Ž Solana price"),
-        BotCommand(command="ton", description="ðŸ’Ž Toncoin price"),
-        BotCommand(command="bnb", description="ðŸ”¶ BNB price"),
-        BotCommand(command="xrp", description="âœ• XRP price"),
-        BotCommand(command="trx", description="âš¡ TRON price"),
-        BotCommand(command="ltc", description="Å Litecoin price"),
+        BotCommand(command="start", description="Start the bot"),
+        BotCommand(command="help", description="Help and instructions"),
+        BotCommand(command="top", description="Top 8 coins grid"),
+        BotCommand(command="btc", description="Bitcoin price"),
+        BotCommand(command="eth", description="Ethereum price"),
+        BotCommand(command="sol", description="Solana price"),
+        BotCommand(command="ton", description="Toncoin price"),
+        BotCommand(command="bnb", description="BNB price"),
+        BotCommand(command="xrp", description="XRP price"),
+        BotCommand(command="trx", description="TRON price"),
+        BotCommand(command="ltc", description="Litecoin price"),
         BotCommand(command="alert", description="Set price alert"),
         BotCommand(command="alerts", description="List my alerts"),
     ]
@@ -122,19 +122,31 @@ async def alert_monitor_loop():
                     )
                     try:
                         thread_id = alert.get("message_thread_id")
-                        if thread_id is not None:
-                            await bot.send_message(
-                                alert["chat_id"],
-                                message_text,
-                                parse_mode="HTML",
-                                message_thread_id=thread_id,
-                            )
-                        else:
+                        try:
+                            if thread_id is not None:
+                                await bot.send_message(
+                                    alert["chat_id"],
+                                    message_text,
+                                    parse_mode="HTML",
+                                    message_thread_id=thread_id,
+                                )
+                            else:
+                                await bot.send_message(alert["chat_id"], message_text, parse_mode="HTML")
+                        except TelegramBadRequest:
+                            # If thread is invalid/closed, retry in the chat without thread binding.
                             await bot.send_message(alert["chat_id"], message_text, parse_mode="HTML")
+                        except TelegramForbiddenError:
+                            # Bot might not have permission in group; DM fallback still notifies the user.
+                            await bot.send_message(
+                                alert["user_id"],
+                                message_text + "\n\n<i>Group delivery failed, sent here instead.</i>",
+                                parse_mode="HTML",
+                            )
                         mark_alert_triggered(alert_id, current)
                         logger.info(f"Alert {alert_id} triggered for user {alert.get('user_id')}")
                     except Exception as send_exc:
                         logger.error(f"Failed to send alert {alert_id}: {send_exc}")
+                        mark_alert_triggered(alert_id, current)
                 else:
                     update_alert_last_price(alert_id, current)
         except Exception as e:
