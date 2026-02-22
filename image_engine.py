@@ -82,34 +82,45 @@ def draw_glassmorphism_card(draw, x, y, w, h, color_rgb, is_positive):
     draw.rounded_rectangle([x, y, x+w, y+h], radius=20, outline=border_color, width=2)
 
 async def create_top_grid_async(prices_data):
-    """Mobile-first 3D board: crisp portrait layout for Telegram."""
+    """Premium 3D board template with bold typography and crisp mobile layout."""
     width, height = 1080, 1350
-    img = Image.new("RGB", (width, height), (11, 17, 30))
+    img = Image.new("RGBA", (width, height), (8, 12, 24, 255))
     draw = ImageDraw.Draw(img)
 
-    # High-contrast vertical background gradient
+    # Deep navy gradient background
     for y in range(height):
         t = y / max(1, height - 1)
-        r = int(10 + 10 * t)
-        g = int(18 + 12 * t)
-        b = int(30 + 26 * t)
+        r = int(8 + (22 - 8) * t)
+        g = int(12 + (20 - 12) * t)
+        b = int(24 + (40 - 24) * t)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    # Soft aurora accents (no blur)
-    accent = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    ad = ImageDraw.Draw(accent)
-    ad.ellipse([-180, -130, 400, 360], fill=(0, 170, 255, 28))
-    ad.ellipse([650, -120, 1260, 420], fill=(0, 255, 190, 20))
-    ad.ellipse([240, 920, 980, 1540], fill=(255, 120, 0, 18))
-    img = Image.alpha_composite(img.convert("RGBA"), accent)
+    # Premium ambient shapes
+    ambient = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    ad = ImageDraw.Draw(ambient)
+    ad.ellipse([-160, -120, 440, 420], fill=(0, 170, 255, 26))
+    ad.ellipse([610, -80, 1260, 520], fill=(0, 235, 160, 22))
+    ad.ellipse([130, 980, 980, 1700], fill=(255, 150, 50, 15))
+    img = Image.alpha_composite(img, ambient)
     draw = ImageDraw.Draw(img)
+
+    # Header plate
+    draw.rounded_rectangle([140, 28, width - 140, 118], radius=30, fill=(20, 30, 52, 170), outline=(60, 82, 124, 180), width=2)
+    title = "CONE MARKET BOARD"
+    subtitle = "Premium Top 8 | Live 24H"
+    font_title = get_font(28, bold=True)
+    font_sub = get_font(12, bold=True)
+    tw = draw.textbbox((0, 0), title, font=font_title)[2]
+    sw = draw.textbbox((0, 0), subtitle, font=font_sub)[2]
+    draw.text(((width - tw) // 2, 46), title, fill="#F5F8FF", font=font_title)
+    draw.text(((width - sw) // 2, 88), subtitle, fill="#C2D0EA", font=font_sub)
 
     coins = ["btc", "eth", "sol", "ton", "ltc", "xrp", "bnb", "trx"]
     cols = 2
     margin_x = 42
     gap_x = 30
-    gap_y = 26
-    grid_top = 146
+    gap_y = 24
+    grid_top = 148
     tile_w = (width - (2 * margin_x) - gap_x) // cols
     tile_h = 268
 
@@ -122,16 +133,6 @@ async def create_top_grid_async(prices_data):
             return f"${price:,.4f}"
         return f"${price:,.6f}"
 
-    # Header
-    title = "CONE MARKET BOARD"
-    subtitle = "Top 8 coins | live 24h change"
-    font_title = get_font(26, bold=True)
-    font_sub = get_font(12)
-    tw = draw.textbbox((0, 0), title, font=font_title)[2]
-    sw = draw.textbbox((0, 0), subtitle, font=font_sub)[2]
-    draw.text(((width - tw) // 2, 38), title, fill="#F1F5FF", font=font_title)
-    draw.text(((width - sw) // 2, 88), subtitle, fill="#A5B4CC", font=font_sub)
-
     for idx, coin in enumerate(coins):
         if coin not in prices_data:
             continue
@@ -143,32 +144,41 @@ async def create_top_grid_async(prices_data):
         change = float(data["change_24h"])
         color_rgb = hex_to_rgb(data.get("color", "#7A879A"))
 
-        # 3D card shadow
-        shadow = Image.new("RGBA", (tile_w + 28, tile_h + 28), (0, 0, 0, 0))
-        sd = ImageDraw.Draw(shadow)
-        sd.rounded_rectangle([14, 14, tile_w + 14, tile_h + 14], radius=30, fill=(0, 0, 0, 90))
-        img.alpha_composite(shadow, (x - 6, y + 10))
+        # Drop shadow stack for 3D depth
+        shadow1 = Image.new("RGBA", (tile_w + 44, tile_h + 44), (0, 0, 0, 0))
+        sd1 = ImageDraw.Draw(shadow1)
+        sd1.rounded_rectangle([20, 20, tile_w + 20, tile_h + 20], radius=30, fill=(0, 0, 0, 95))
+        img.alpha_composite(shadow1, (x - 12, y + 10))
 
-        # Outer glow frame
-        frame = tuple(min(255, int(c * 1.15)) for c in color_rgb)
+        shadow2 = Image.new("RGBA", (tile_w + 24, tile_h + 24), (0, 0, 0, 0))
+        sd2 = ImageDraw.Draw(shadow2)
+        sd2.rounded_rectangle([10, 10, tile_w + 10, tile_h + 10], radius=28, fill=(0, 0, 0, 70))
+        img.alpha_composite(shadow2, (x - 4, y + 6))
+
+        # Outer neon frame
+        frame = tuple(min(255, int(c * 1.2)) for c in color_rgb)
         draw.rounded_rectangle([x - 2, y - 2, x + tile_w + 2, y + tile_h + 2], radius=26, outline=frame, width=3)
 
-        # Card body gradient
+        # Card body with dark metallic gradient
         for dy in range(tile_h):
             t = dy / max(1, tile_h - 1)
-            r = int(36 + 10 * t)
-            g = int(46 + 10 * t)
-            b = int(62 + 18 * t)
+            r = int(34 + (46 - 34) * t)
+            g = int(42 + (56 - 42) * t)
+            b = int(58 + (78 - 58) * t)
             draw.line([(x, y + dy), (x + tile_w, y + dy)], fill=(r, g, b))
 
-        # Top highlight + bottom bevel (3D feel)
+        # Upper sheen and beveled edges
         draw.rounded_rectangle([x + 14, y + 12, x + tile_w - 14, y + 24], radius=6, fill=frame)
-        draw.line([(x + 16, y + 38), (x + tile_w - 16, y + 38)], fill=(255, 255, 255, 120), width=1)
-        draw.line([(x + 14, y + tile_h - 10), (x + tile_w - 14, y + tile_h - 10)], fill=(0, 0, 0), width=2)
-        draw.line([(x + tile_w - 10, y + 14), (x + tile_w - 10, y + tile_h - 12)], fill=(0, 0, 0), width=2)
+        draw.line([(x + 16, y + 34), (x + tile_w - 16, y + 34)], fill=(235, 242, 255, 140), width=1)
+        draw.line([(x + 14, y + tile_h - 9), (x + tile_w - 14, y + tile_h - 9)], fill=(10, 14, 22), width=2)
+        draw.line([(x + tile_w - 10, y + 14), (x + tile_w - 10, y + tile_h - 12)], fill=(10, 14, 22), width=2)
+        draw.rounded_rectangle([x + 1, y + 1, x + tile_w - 1, y + tile_h - 1], radius=24, outline=(84, 99, 126), width=1)
 
-        # Inner border
-        draw.rounded_rectangle([x + 1, y + 1, x + tile_w - 1, y + tile_h - 1], radius=24, outline=(85, 100, 128), width=1)
+        # Rank chip
+        rank_bg = (20, 30, 48)
+        rank_fg = "#BFD2F7"
+        draw.rounded_rectangle([x + 16, y + 16, x + 74, y + 44], radius=12, fill=rank_bg, outline=(87, 104, 138), width=1)
+        draw.text((x + 29, y + 21), f"#{idx + 1}", fill=rank_fg, font=get_font(10, bold=True))
 
         # Logo
         logo_url = data.get("logo_url")
@@ -178,41 +188,160 @@ async def create_top_grid_async(prices_data):
             if logo:
                 img.paste(logo, (x + (tile_w - logo_size) // 2, y + 42), logo)
 
-        # Symbol
+        # Symbol (bold with stroke)
         symbol = data.get("symbol", coin.upper())
-        font_symbol = get_font(22, bold=True)
+        font_symbol = get_font(24, bold=True)
         sw2 = draw.textbbox((0, 0), symbol, font=font_symbol)[2]
-        draw.text((x + (tile_w - sw2) // 2, y + 118), symbol, fill="#EAF0FB", font=font_symbol, stroke_width=1, stroke_fill="#1A2130")
+        draw.text(
+            (x + (tile_w - sw2) // 2, y + 118),
+            symbol,
+            fill="#F0F4FE",
+            font=font_symbol,
+            stroke_width=1,
+            stroke_fill="#12192A",
+        )
 
-        # Price
+        # Price (bolder)
         price_text = format_price(float(data["price"]))
-        font_price = get_font(20, bold=True)
+        font_price = get_font(22, bold=True)
         pw = draw.textbbox((0, 0), price_text, font=font_price)[2]
-        draw.text((x + (tile_w - pw) // 2, y + 172), price_text, fill="#FFFFFF", font=font_price)
+        draw.text((x + (tile_w - pw) // 2, y + 171), price_text, fill="#FFFFFF", font=font_price)
 
-        # Change badge
+        # Change badge (high contrast)
         change_text = f"{'+' if change >= 0 else ''}{change:.2f}%"
-        font_change = get_font(16, bold=True)
+        font_change = get_font(17, bold=True)
         twc = draw.textbbox((0, 0), change_text, font=font_change)[2]
-        pill_w = max(136, twc + 34)
-        pill_h = 46
+        pill_w = max(142, twc + 36)
+        pill_h = 48
         px = x + (tile_w - pill_w) // 2
-        py = y + 210
+        py = y + 209
         if change >= 0:
-            pill_bg = (9, 72, 56)
-            pill_fg = "#08F0A0"
+            pill_bg = (7, 76, 58)
+            pill_fg = "#09F2A2"
         else:
-            pill_bg = (92, 30, 38)
-            pill_fg = "#FF5D66"
-        draw.rounded_rectangle([px, py, px + pill_w, py + pill_h], radius=22, fill=pill_bg, outline=pill_fg, width=2)
-        draw.text((px + (pill_w - twc) // 2, py + 8), change_text, fill=pill_fg, font=font_change)
+            pill_bg = (92, 29, 39)
+            pill_fg = "#FF626C"
+        draw.rounded_rectangle([px, py, px + pill_w, py + pill_h], radius=23, fill=pill_bg, outline=pill_fg, width=2)
+        draw.text((px + (pill_w - twc) // 2, py + 9), change_text, fill=pill_fg, font=font_change)
 
     # Footer
-    font_wm = get_font(11)
+    font_wm = get_font(11, bold=True)
     ts = datetime.now().strftime("%H:%M:%S")
     watermark_text = f"{WATERMARK} - {ts}"
     ww = draw.textbbox((0, 0), watermark_text, font=font_wm)[2]
-    draw.text(((width - ww) // 2, height - 36), watermark_text, fill="#8795AD", font=font_wm)
+    draw.text(((width - ww) // 2, height - 36), watermark_text, fill="#95A5C2", font=font_wm)
+
+    return img.convert("RGB")
+
+async def create_top_lux_grid_async(prices_data):
+    """Luxury black-gold demo board for /toplux."""
+    width, height = 1080, 1350
+    img = Image.new("RGBA", (width, height), (7, 7, 9, 255))
+    draw = ImageDraw.Draw(img)
+
+    # Black-gold backdrop
+    for y in range(height):
+        t = y / max(1, height - 1)
+        r = int(8 + (22 - 8) * t)
+        g = int(8 + (18 - 8) * t)
+        b = int(10 + (20 - 10) * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    gl = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(gl)
+    gd.ellipse([-160, -120, 400, 380], fill=(255, 202, 95, 24))
+    gd.ellipse([680, -100, 1260, 480], fill=(201, 147, 56, 18))
+    gd.ellipse([140, 940, 980, 1660], fill=(255, 170, 70, 12))
+    img = Image.alpha_composite(img, gl)
+    draw = ImageDraw.Draw(img)
+
+    # Header plate
+    draw.rounded_rectangle([130, 28, width - 130, 120], radius=28, fill=(22, 19, 16, 210), outline=(196, 146, 62, 210), width=2)
+    draw.text(((width - draw.textbbox((0, 0), "ELITE MARKET BOARD", font=get_font(27, bold=True))[2]) // 2, 46),
+              "ELITE MARKET BOARD", fill="#F9E3B0", font=get_font(27, bold=True))
+    sub = "Top 8 coins | Luxury Demo"
+    draw.text(((width - draw.textbbox((0, 0), sub, font=get_font(12, bold=True))[2]) // 2, 90),
+              sub, fill="#D2B98A", font=get_font(12, bold=True))
+
+    coins = ["btc", "eth", "sol", "ton", "ltc", "xrp", "bnb", "trx"]
+    cols = 2
+    margin_x, gap_x, gap_y = 42, 30, 24
+    grid_top = 148
+    tile_w = (width - (2 * margin_x) - gap_x) // cols
+    tile_h = 268
+
+    def format_price(price):
+        if price >= 1000:
+            return f"${price:,.0f}"
+        if price >= 1:
+            return f"${price:,.2f}"
+        if price >= 0.01:
+            return f"${price:,.4f}"
+        return f"${price:,.6f}"
+
+    for idx, coin in enumerate(coins):
+        if coin not in prices_data:
+            continue
+        data = prices_data[coin]
+        row, col = idx // cols, idx % cols
+        x = margin_x + col * (tile_w + gap_x)
+        y = grid_top + row * (tile_h + gap_y)
+        change = float(data["change_24h"])
+
+        # Deep shadow
+        sh = Image.new("RGBA", (tile_w + 40, tile_h + 40), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(sh)
+        sd.rounded_rectangle([18, 18, tile_w + 18, tile_h + 18], radius=30, fill=(0, 0, 0, 110))
+        img.alpha_composite(sh, (x - 10, y + 10))
+
+        # Card body
+        for dy in range(tile_h):
+            t = dy / max(1, tile_h - 1)
+            r = int(26 + (40 - 26) * t)
+            g = int(24 + (34 - 24) * t)
+            b = int(22 + (30 - 22) * t)
+            draw.line([(x, y + dy), (x + tile_w, y + dy)], fill=(r, g, b))
+
+        gold = (214, 165, 75)
+        draw.rounded_rectangle([x - 2, y - 2, x + tile_w + 2, y + tile_h + 2], radius=26, outline=gold, width=3)
+        draw.rounded_rectangle([x + 14, y + 12, x + tile_w - 14, y + 24], radius=6, fill=gold)
+        draw.line([(x + 16, y + 34), (x + tile_w - 16, y + 34)], fill=(255, 233, 182, 150), width=1)
+        draw.rounded_rectangle([x + 1, y + 1, x + tile_w - 1, y + tile_h - 1], radius=24, outline=(116, 95, 57), width=1)
+
+        # Logo + texts
+        logo_url = data.get("logo_url")
+        if logo_url:
+            logo = await download_logo(logo_url, 64)
+            if logo:
+                img.paste(logo, (x + (tile_w - 64) // 2, y + 42), logo)
+
+        symbol = data.get("symbol", coin.upper())
+        fs = get_font(24, bold=True)
+        fw = draw.textbbox((0, 0), symbol, font=fs)[2]
+        draw.text((x + (tile_w - fw) // 2, y + 118), symbol, fill="#FFF4D7", font=fs, stroke_width=1, stroke_fill="#1A1511")
+
+        price = format_price(float(data["price"]))
+        fp = get_font(22, bold=True)
+        pw = draw.textbbox((0, 0), price, font=fp)[2]
+        draw.text((x + (tile_w - pw) // 2, y + 171), price, fill="#FFFFFF", font=fp)
+
+        ch = f"{'+' if change >= 0 else ''}{change:.2f}%"
+        fc = get_font(17, bold=True)
+        cw = draw.textbbox((0, 0), ch, font=fc)[2]
+        pill_w, pill_h = max(142, cw + 36), 48
+        px, py = x + (tile_w - pill_w) // 2, y + 209
+        if change >= 0:
+            bg, fg = (27, 76, 54), "#15F19F"
+        else:
+            bg, fg = (89, 33, 38), "#FF6C74"
+        draw.rounded_rectangle([px, py, px + pill_w, py + pill_h], radius=23, fill=bg, outline=fg, width=2)
+        draw.text((px + (pill_w - cw) // 2, py + 9), ch, fill=fg, font=fc)
+
+    # Footer
+    wm = f"{WATERMARK} - {datetime.now().strftime('%H:%M:%S')}"
+    fw = get_font(11, bold=True)
+    ww = draw.textbbox((0, 0), wm, font=fw)[2]
+    draw.text(((width - ww) // 2, height - 36), wm, fill="#BBA57C", font=fw)
 
     return img.convert("RGB")
 
