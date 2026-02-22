@@ -894,7 +894,8 @@ async def handle_unknown(message: types.Message):
         token = text.split()[0]
         if "@" in token:
             addressed_bot = token.split("@", 1)[1].lower()
-            if BOT_USERNAME and addressed_bot != BOT_USERNAME:
+            # Be strict: if addressed bot is not this bot (or username is unavailable), ignore.
+            if (not BOT_USERNAME) or (addressed_bot != BOT_USERNAME):
                 return
 
     if text.startswith('/'):
