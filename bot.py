@@ -11,7 +11,7 @@ from config import BOT_TOKEN, SUPPORTED_COINS, PREMIUM_EMOJI_ID, ICE_CREAM_EMOJI
 from api import get_coin_price, get_all_prices, get_price_chart
 from binance_api import binance_updater
 from image_engine import (
-    create_top_grid_async, create_top_lux_grid_async, create_coin_card_async, create_ath_card_async, 
+    create_top_grid_async, create_coin_card_async, create_ath_card_async, 
     create_convert_card_async, image_to_bytes
 )
 from database import (
@@ -61,7 +61,6 @@ async def set_bot_commands():
         BotCommand(command="start", description="Start the bot"),
         BotCommand(command="help", description="Help and instructions"),
         BotCommand(command="top", description="Top 8 coins grid"),
-        BotCommand(command="toplux", description="Luxury top board demo"),
         BotCommand(command="btc", description="Bitcoin price"),
         BotCommand(command="eth", description="Ethereum price"),
         BotCommand(command="sol", description="Solana price"),
@@ -257,37 +256,6 @@ async def cmd_top(message: types.Message):
         
     except Exception as e:
         logger.error(f"Error in /top: {e}")
-        await message.answer(" An error occurred. Please try again.")
-
-@dp.message(Command("toplux"))
-async def cmd_top_lux(message: types.Message):
-    """Demo: luxury black-gold top board."""
-    try:
-        prices = await get_all_prices()
-        if not prices:
-            await message.answer(" Failed to fetch prices. Please try again.")
-            return
-
-        img = await create_top_lux_grid_async(prices)
-        img_bytes = image_to_bytes(img)
-
-        import time
-        filename = f"top_lux_{int(time.time())}.png"
-        photo = BufferedInputFile(img_bytes.read(), filename=filename)
-
-        part1 = "\U0001FA99 "
-        part2 = "Elite Top 8 Board\n\n"
-        part3 = "\U0001F366 Powered by @conesociety"
-        caption = part1 + part2 + part3
-
-        ice_cream_offset = len(part1.encode('utf-16-le')) // 2 + len(part2.encode('utf-16-le')) // 2
-        entities = [
-            MessageEntity(type="custom_emoji", offset=0, length=2, custom_emoji_id=PREMIUM_EMOJI_ID),
-            MessageEntity(type="custom_emoji", offset=ice_cream_offset, length=2, custom_emoji_id=ICE_CREAM_EMOJI_ID),
-        ]
-        await send_photo_safe(message, photo, caption, entities)
-    except Exception as e:
-        logger.error(f"Error in /toplux: {e}")
         await message.answer(" An error occurred. Please try again.")
 
 async def handle_coin_command(message: types.Message, coin_symbol: str):
