@@ -898,15 +898,9 @@ async def handle_unknown(message: types.Message):
             if (not BOT_USERNAME) or (addressed_bot != BOT_USERNAME):
                 return
 
+    # Silent ignore for unknown slash commands to avoid collisions with other bots.
     if text.startswith('/'):
-        await message.answer(
-            " <b>Unknown command!</b>\n\n"
-            "Send /start to see all available commands.\n"
-            "Send /help for detailed instructions.\n"
-            "Try /crypto &lt;symbol&gt; for any cryptocurrency!\n\n"
-            " Powered by @conesociety",
-            parse_mode="HTML"
-        )
+        return
 
 async def main():
     global BOT_USERNAME
