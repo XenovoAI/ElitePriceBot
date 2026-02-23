@@ -809,8 +809,19 @@ async def cmd_convert(message: types.Message):
         if not coin_data:
             await message.answer(f" Failed to fetch {coin_symbol.upper()} data. Please try again.")
             return
-        
-        img = await create_convert_card_async(coin_data, amount)
+
+        # Fetch cross conversion targets for converter card rows.
+        target_symbols = ["eth", "sol", "ton"]
+        cross_results = await asyncio.gather(
+            *(get_coin_price(sym) for sym in target_symbols),
+            return_exceptions=True
+        )
+        cross_data = {}
+        for sym, result in zip(target_symbols, cross_results):
+            if isinstance(result, dict) and result.get("price"):
+                cross_data[sym] = result
+
+        img = await create_convert_card_async(coin_data, amount, cross_data=cross_data)
         img_bytes = image_to_bytes(img)
         
         # Unique filename with timestamp to prevent caching

@@ -558,230 +558,307 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     return img
 
-async def create_convert_card_async(coin_data, amount):
-    """Ultra-professional glassmorphism converter card"""
-    width, height = 900, 700
-    
-    # Pure black background
-    img = Image.new('RGB', (width, height), (0, 0, 0))
+async def create_convert_card_async(coin_data, amount, cross_data=None):
+    """Premium converter card with USD + ETH/SOL/TON rows and overlap-safe typography."""
+    width, height = 1200, 760
+    accent = hex_to_rgb(coin_data["color"])
+    usd_value = amount * float(coin_data["price"])
+    symbol = (coin_data.get("symbol") or coin_data.get("name", "COIN")).upper()
+    amount_text = f"{amount:,.4f}" if amount < 10 else f"{amount:,.2f}"
+    usd_text = f"${usd_value:,.2f}"
+    cross_data = cross_data or {}
+
+    def cv_font(size, bold=False):
+        fonts = [
+            "C:\\Windows\\Fonts\\segoeuib.ttf" if bold else "C:\\Windows\\Fonts\\segoeui.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ]
+        for f in fonts:
+            try:
+                return ImageFont.truetype(f, size)
+            except:
+                continue
+        return ImageFont.load_default()
+
+    def fit_font(text, max_w, start_size, min_size=16, bold=True):
+        size = start_size
+        while size >= min_size:
+            f = cv_font(size, bold=bold)
+            tw = draw.textbbox((0, 0), text, font=f)[2]
+            if tw <= max_w:
+                return f
+            size -= 2
+        return cv_font(min_size, bold=bold)
+
+    def format_amount(v):
+        if v >= 1000:
+            return f"{v:,.2f}"
+        if v >= 1:
+            return f"{v:,.4f}"
+        if v >= 0.01:
+            return f"{v:,.5f}"
+        return f"{v:,.6f}"
+
+    # Background
+    img = Image.new("RGB", (width, height), (20, 28, 42))
     draw = ImageDraw.Draw(img)
-    
-    color_rgb = hex_to_rgb(coin_data["color"])
-    
-    # Main card with colored glow
-    card_x, card_y = 40, 40
-    card_w, card_h = width - 80, height - 80
-    
-    # Outer glow
-    for i in range(6, 0, -1):
-        glow_rgb = tuple(int(c * (i / 6)) for c in color_rgb)
-        draw.rounded_rectangle([card_x-i, card_y-i, card_x+card_w+i, card_y+card_h+i], 
-                              radius=28, outline=glow_rgb, width=3)
-    
-    # Dark gradient background
-    for dy in range(card_h):
-        ratio = dy / card_h
-        r = int(35 + (55 - 35) * ratio)
-        g = int(40 + (60 - 40) * ratio)
-        b = int(45 + (65 - 45) * ratio)
-        draw.line([(card_x, card_y + dy), (card_x + card_w, card_y + dy)], fill=(r, g, b))
-    
-    # Rounded mask
-    mask = Image.new('L', (card_w, card_h), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle([0, 0, card_w, card_h], radius=25, fill=255)
-    card_img = img.crop((card_x, card_y, card_x + card_w, card_y + card_h))
-    img.paste(card_img, (card_x, card_y), mask)
-    
+    for y in range(height):
+        t = y / max(1, height - 1)
+        r = int(22 + (40 - 22) * t)
+        g = int(30 + (52 - 30) * t)
+        b = int(45 + (74 - 45) * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    # Main panel + depth
+    panel_x, panel_y = 56, 62
+    panel_w, panel_h = width - 112, height - 124
+    shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle([panel_x + 8, panel_y + 14, panel_x + panel_w + 8, panel_y + panel_h + 14], radius=36, fill=(0, 0, 0, 110))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(9))
+    img = Image.alpha_composite(img.convert("RGBA"), shadow).convert("RGB")
     draw = ImageDraw.Draw(img)
-    
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, fill=(19, 30, 47))
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, outline=(128, 153, 190), width=2)
+    draw.rounded_rectangle([panel_x + 9, panel_y + 9, panel_x + panel_w - 9, panel_y + panel_h - 9], radius=31, outline=(74, 95, 130), width=1)
+
     # Title
-    font_title = get_font(38, bold=True)
-    draw.text((width//2 - 130, 70), "🍦 CONVERTER", fill='#FFFFFF', font=font_title)
-    
-    # Input box
-    input_y, input_h, input_x = 170, 100, 100
-    input_w = width - 200
-    
-    # Input glow
-    for i in range(2, 0, -1):
-        glow_rgb = tuple(int(c * (i / 4)) for c in color_rgb)
-        draw.rounded_rectangle([input_x-i, input_y-i, input_x+input_w+i, input_y+input_h+i], 
-                              radius=52, outline=glow_rgb, width=2)
-    
-    draw.rounded_rectangle([input_x, input_y, input_x + input_w, input_y + input_h], 
-                          radius=50, fill=(25, 35, 45))
-    draw.rounded_rectangle([input_x, input_y, input_x + input_w, input_y + input_h], 
-                          radius=50, outline=color_rgb, width=2)
-    
-    # Logo
+    title = "CRYPTO CONVERTER"
+    tf = cv_font(64, bold=True)
+    tw = draw.textbbox((0, 0), title, font=tf)[2]
+    draw.text(((width - tw) // 2, panel_y + 46), title, fill="#F4F9FF", font=tf)
+
+    # Left source box
+    lx, ly = panel_x + 46, panel_y + 258
+    lw, lh = 360, 132
+    draw.rounded_rectangle([lx + 2, ly + 6, lx + lw + 2, ly + lh + 6], radius=38, fill=(0, 0, 0, 90))
+    draw.rounded_rectangle([lx, ly, lx + lw, ly + lh], radius=38, fill=(52, 72, 102))
+    draw.rounded_rectangle([lx, ly, lx + lw, ly + lh], radius=38, outline=tuple(min(255, int(c * 1.25)) for c in accent), width=3)
+
+    # Logo badge in source box
+    src_logo = None
     logo_url = coin_data.get("logo_url")
     if logo_url:
-        logo = await download_logo(logo_url, 65)
-        if logo:
-            img.paste(logo, (input_x + 20, input_y + 18), logo)
-    
-    font_coin = get_font(34, bold=True)
-    draw.text((input_x + 100, input_y + 35), coin_data["name"], fill='#FFFFFF', font=font_coin)
-    
-    font_amount = get_font(38, bold=True)
-    amount_text = f"{amount:,.4f}" if amount < 1000 else f"{amount:,.2f}"
-    draw.text((input_x + input_w - 240, input_y + 32), amount_text, fill=color_rgb, font=font_amount)
-    
+        src_logo = await download_logo(logo_url, 58)
+    badge = Image.new("RGBA", (72, 72), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(badge)
+    bd.ellipse([0, 0, 71, 71], fill=(20, 30, 45), outline=tuple(min(255, int(c * 1.3)) for c in accent), width=2)
+    if src_logo:
+        fit = ImageOps.contain(src_logo.convert("RGBA"), (46, 46), Image.Resampling.LANCZOS)
+        badge.alpha_composite(fit, ((72 - fit.width) // 2, (72 - fit.height) // 2))
+    else:
+        f = cv_font(30, bold=True)
+        c = symbol[:1] if symbol else "?"
+        cw = bd.textbbox((0, 0), c, font=f)[2]
+        ch = bd.textbbox((0, 0), c, font=f)[3]
+        bd.text(((72 - cw) // 2, (72 - ch) // 2 - 1), c, fill="#F7FBFF", font=f)
+    img.paste(badge, (lx + 22, ly + 30), badge)
+
+    left_text = f"{amount_text} {symbol}"
+    left_font = fit_font(left_text, 230, 62, 26, bold=True)
+    draw.text((lx + 108, ly + 43), left_text, fill="#F2F7FF", font=left_font)
+
     # Arrow
-    arrow_y = input_y + input_h + 60
-    font_arrow = get_font(52)
-    draw.text((width//2 - 20, arrow_y), "↓", fill='#666666', font=font_arrow)
-    
-    # Output box
-    output_y = arrow_y + 100
-    
-    # Output glow (green)
-    for i in range(2, 0, -1):
-        glow_rgb = tuple(int(c * (i / 4)) for c in hex_to_rgb('#00FF88'))
-        draw.rounded_rectangle([input_x-i, output_y-i, input_x+input_w+i, output_y+input_h+i], 
-                              radius=52, outline=glow_rgb, width=2)
-    
-    draw.rounded_rectangle([input_x, output_y, input_x + input_w, output_y + input_h], 
-                          radius=50, fill=(25, 35, 45))
-    draw.rounded_rectangle([input_x, output_y, input_x + input_w, output_y + input_h], 
-                          radius=50, outline='#00FF88', width=2)
-    
-    usd_value = amount * coin_data['price']
-    usd_text = f"${usd_value:,.2f}"
-    
-    draw.text((input_x + 30, output_y + 35), "USD", fill='#FFFFFF', font=font_coin)
-    draw.text((input_x + input_w - 300, output_y + 32), usd_text, fill='#00FF88', font=font_amount)
-    
-    # Watermark with timestamp (prevents Telegram cache in groups)
-    font_watermark = get_font(10)
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    watermark_text = f"{WATERMARK} • {timestamp}"
-    draw.text((width//2 - 140, height - 40), watermark_text, fill='#555555', font=font_watermark)
-    
+    draw.text((lx + lw + 18, ly + 28), "=", fill="#EAF2FF", font=cv_font(74, bold=True))
+    draw.text((lx + lw + 70, ly + 20), ">", fill="#FFE6C0", font=cv_font(96, bold=True))
+
+    # Right result panel (4 rows: USD + ETH + SOL + TON)
+    rx, ry = panel_x + 550, panel_y + 158
+    rw, rh = 520, 430
+    draw.rounded_rectangle([rx + 3, ry + 8, rx + rw + 3, ry + rh + 8], radius=30, fill=(0, 0, 0, 95))
+    draw.rounded_rectangle([rx, ry, rx + rw, ry + rh], radius=30, fill=(25, 37, 56))
+    draw.rounded_rectangle([rx, ry, rx + rw, ry + rh], radius=30, outline=(82, 106, 142), width=2)
+
+    row_h = rh // 4
+    for i in range(1, 4):
+        y = ry + i * row_h
+        draw.line([(rx, y), (rx + rw, y)], fill=(66, 86, 116), width=2)
+
+    # Load target logos
+    target_symbols = ["eth", "sol", "ton"]
+    target_logos = {}
+    for ts in target_symbols:
+        td = cross_data.get(ts) or cross_data.get(ts.upper())
+        if td and td.get("logo_url"):
+            target_logos[ts] = await download_logo(td["logo_url"], 34)
+
+    # USD row
+    usd_font = fit_font(usd_text, rw - 54, 66, 30, bold=True)
+    uw = draw.textbbox((0, 0), usd_text, font=usd_font)[2]
+    draw.text((rx + 28, ry + 18), usd_text, fill="#FFFFFF", font=usd_font)
+    usd_label_x = min(rx + rw - 94, rx + 28 + uw + 10)
+    draw.text((usd_label_x, ry + 38), "USD", fill="#9FB3CE", font=cv_font(40, bold=False))
+
+    # Coin rows
+    for idx, ts in enumerate(target_symbols, start=1):
+        td = cross_data.get(ts) or cross_data.get(ts.upper())
+        row_y = ry + idx * row_h
+        if td and float(td.get("price", 0)) > 0:
+            conv = usd_value / float(td["price"])
+            txt = f"{format_amount(conv)} {ts.upper()}"
+        else:
+            txt = f"-- {ts.upper()}"
+
+        # Small logo badge
+        bx, by = rx + 26, row_y + 26
+        mini = Image.new("RGBA", (44, 44), (0, 0, 0, 0))
+        md = ImageDraw.Draw(mini)
+        md.ellipse([0, 0, 43, 43], fill=(34, 50, 72), outline=(93, 120, 155), width=1)
+        logo = target_logos.get(ts)
+        if logo:
+            fit = ImageOps.contain(logo.convert("RGBA"), (28, 28), Image.Resampling.LANCZOS)
+            mini.alpha_composite(fit, ((44 - fit.width) // 2, (44 - fit.height) // 2))
+        else:
+            sfont = cv_font(18, bold=True)
+            ch = ts[:1].upper()
+            sw = md.textbbox((0, 0), ch, font=sfont)[2]
+            sh = md.textbbox((0, 0), ch, font=sfont)[3]
+            md.text(((44 - sw) // 2, (44 - sh) // 2 - 1), ch, fill="#EAF2FF", font=sfont)
+        img.paste(mini, (bx, by), mini)
+
+        row_font = fit_font(txt, rw - 120, 50, 24, bold=True)
+        color = "#D8E7FF" if td else "#9AAEC9"
+        draw.text((rx + 84, row_y + 22), txt, fill=color, font=row_font)
+
+    # Footer
+    wm = "Powered by @conesociety"
+    wf = cv_font(48, bold=False)
+    ww = draw.textbbox((0, 0), wm, font=wf)[2]
+    draw.text(((width - ww) // 2, panel_y + panel_h - 72), wm, fill="#8FA4C2", font=wf)
+
     return img
 
 async def create_ath_card_async(coin_data):
-    """Ultra-professional glassmorphism ATH card"""
+    """Premium ATH card with 3D glass style and overlap-safe text."""
     from datetime import datetime
-    width, height = 900, 800
-    
-    # Pure black background
-    img = Image.new('RGB', (width, height), (0, 0, 0))
+
+    width, height = 1200, 760
+    accent = hex_to_rgb(coin_data["color"])
+    ath = float(coin_data.get("ath", 0))
+    current = float(coin_data.get("price", 0))
+    down_pct = ((ath - current) / ath * 100) if ath > 0 else 0.0
+
+    def ath_font(size, bold=False):
+        fonts = [
+            "C:\\Windows\\Fonts\\segoeuib.ttf" if bold else "C:\\Windows\\Fonts\\segoeui.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ]
+        for f in fonts:
+            try:
+                return ImageFont.truetype(f, size)
+            except:
+                continue
+        return ImageFont.load_default()
+
+    def fit_font(draw_obj, text, max_w, start_size, min_size=16, bold=True):
+        size = start_size
+        while size >= min_size:
+            f = ath_font(size, bold=bold)
+            tw = draw_obj.textbbox((0, 0), text, font=f)[2]
+            if tw <= max_w:
+                return f
+            size -= 2
+        return ath_font(min_size, bold=bold)
+
+    img = Image.new("RGB", (width, height), (20, 28, 42))
     draw = ImageDraw.Draw(img)
-    
-    color_rgb = hex_to_rgb(coin_data["color"])
-    
-    # Main card with colored glow
-    card_x, card_y = 40, 40
-    card_w, card_h = width - 80, height - 80
-    
-    # Outer glow
-    for i in range(6, 0, -1):
-        glow_rgb = tuple(int(c * (i / 6)) for c in color_rgb)
-        draw.rounded_rectangle([card_x-i, card_y-i, card_x+card_w+i, card_y+card_h+i], 
-                              radius=28, outline=glow_rgb, width=3)
-    
-    # Dark gradient background
-    for dy in range(card_h):
-        ratio = dy / card_h
-        r = int(35 + (55 - 35) * ratio)
-        g = int(40 + (60 - 40) * ratio)
-        b = int(45 + (65 - 45) * ratio)
-        draw.line([(card_x, card_y + dy), (card_x + card_w, card_y + dy)], fill=(r, g, b))
-    
-    # Rounded mask
-    mask = Image.new('L', (card_w, card_h), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle([0, 0, card_w, card_h], radius=25, fill=255)
-    card_img = img.crop((card_x, card_y, card_x + card_w, card_y + card_h))
-    img.paste(card_img, (card_x, card_y), mask)
-    
+    for y in range(height):
+        t = y / max(1, height - 1)
+        r = int(22 + (40 - 22) * t)
+        g = int(30 + (52 - 30) * t)
+        b = int(45 + (74 - 45) * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    panel_x, panel_y = 56, 52
+    panel_w, panel_h = width - 112, height - 104
+    shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle([panel_x + 8, panel_y + 14, panel_x + panel_w + 8, panel_y + panel_h + 14], radius=36, fill=(0, 0, 0, 110))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(9))
+    img = Image.alpha_composite(img.convert("RGBA"), shadow).convert("RGB")
     draw = ImageDraw.Draw(img)
-    
-    # Title with logo
-    logo_url = coin_data.get("logo_url")
-    if logo_url:
-        logo = await download_logo(logo_url, 65)
-        if logo:
-            img.paste(logo, (70, 70), logo)
-    
-    font_title = get_font(38, bold=True)
-    draw.text((155, 82), f"{coin_data['name']} ATH", fill='#FFFFFF', font=font_title)
-    
-    y_pos, spacing = 190, 130
-    badge_w, badge_h = 650, 80
-    badge_x = (width - badge_w) // 2
-    
-    font_label = get_font(16, bold=True)
-    font_value = get_font(36, bold=True)
-    
-    # ATH Price
-    draw.text((badge_x + 20, y_pos - 30), "ALL-TIME HIGH", fill='#888888', font=font_label)
-    
-    # Glow for ATH badge
-    for i in range(2, 0, -1):
-        glow_rgb = tuple(int(c * (i / 4)) for c in hex_to_rgb('#00FF88'))
-        draw.rounded_rectangle([badge_x-i, y_pos-i, badge_x+badge_w+i, y_pos+badge_h+i], 
-                              radius=42, outline=glow_rgb, width=2)
-    
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, fill=(0, 50, 30))
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, outline='#00FF88', width=2)
-    draw.text((badge_x + 30, y_pos + 22), f"${coin_data['ath']:,.2f}", fill='#00FF88', font=font_value)
-    
-    # ATH Date
-    y_pos += spacing
-    draw.text((badge_x + 20, y_pos - 30), "ATH DATE", fill='#888888', font=font_label)
-    ath_date = datetime.fromisoformat(coin_data['ath_date'].replace('Z', '+00:00'))
-    date_text = ath_date.strftime("%B %d, %Y")
-    
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, fill=(25, 35, 45))
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, outline='#666666', width=2)
-    draw.text((badge_x + 30, y_pos + 22), date_text, fill='#FFFFFF', font=get_font(32, bold=True))
-    
-    # Current Price
-    y_pos += spacing
-    draw.text((badge_x + 20, y_pos - 30), "CURRENT PRICE", fill='#888888', font=font_label)
-    
-    # Glow for current price
-    for i in range(2, 0, -1):
-        glow_rgb = tuple(int(c * (i / 4)) for c in color_rgb)
-        draw.rounded_rectangle([badge_x-i, y_pos-i, badge_x+badge_w+i, y_pos+badge_h+i], 
-                              radius=42, outline=glow_rgb, width=2)
-    
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, fill=(int(color_rgb[0] * 0.2), int(color_rgb[1] * 0.2), int(color_rgb[2] * 0.2)))
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, outline=color_rgb, width=2)
-    draw.text((badge_x + 30, y_pos + 22), f"${coin_data['price']:,.2f}", fill=color_rgb, font=font_value)
-    
-    # Down from ATH
-    y_pos += spacing
-    percent_down = ((coin_data['ath'] - coin_data['price']) / coin_data['ath']) * 100
-    draw.text((badge_x + 20, y_pos - 30), "DOWN FROM ATH", fill='#888888', font=font_label)
-    
-    # Glow for down badge
-    for i in range(2, 0, -1):
-        glow_rgb = tuple(int(c * (i / 4)) for c in hex_to_rgb('#FF4444'))
-        draw.rounded_rectangle([badge_x-i, y_pos-i, badge_x+badge_w+i, y_pos+badge_h+i], 
-                              radius=42, outline=glow_rgb, width=2)
-    
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, fill=(50, 0, 20))
-    draw.rounded_rectangle([badge_x, y_pos, badge_x + badge_w, y_pos + badge_h], 
-                          radius=40, outline='#FF4444', width=2)
-    draw.text((badge_x + 30, y_pos + 22), f"-{percent_down:.2f}%", fill='#FF4444', font=font_value)
-    
-    # Watermark with timestamp (prevents Telegram cache in groups)
-    font_watermark = get_font(10)
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    watermark_text = f"{WATERMARK} • {timestamp}"
-    draw.text((width//2 - 140, height - 40), watermark_text, fill='#555555', font=font_watermark)
-    
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, fill=(19, 30, 47))
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, outline=(128, 153, 190), width=2)
+    draw.rounded_rectangle([panel_x + 9, panel_y + 9, panel_x + panel_w - 9, panel_y + panel_h - 9], radius=31, outline=(74, 95, 130), width=1)
+
+    # Accent strip
+    for dy in range(7):
+        t = dy / 6
+        col = tuple(min(255, int(c * (1.2 - 0.3 * t))) for c in accent)
+        draw.rounded_rectangle([panel_x + 24, panel_y + 16 + dy, panel_x + panel_w - 24, panel_y + 19 + dy], radius=3, fill=col)
+
+    # Header coin pill
+    pill_x, pill_y = panel_x + panel_w - 340, panel_y + 40
+    pill_w, pill_h = 284, 88
+    draw.rounded_rectangle([pill_x + 2, pill_y + 6, pill_x + pill_w + 2, pill_y + pill_h + 6], radius=38, fill=(0, 0, 0, 90))
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, fill=(58, 78, 108))
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, outline=(128, 154, 192), width=2)
+
+    # Logo badge
+    logo = None
+    if coin_data.get("logo_url"):
+        logo = await download_logo(coin_data["logo_url"], 52)
+    badge = Image.new("RGBA", (56, 56), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(badge)
+    bd.ellipse([0, 0, 55, 55], fill=(20, 30, 45), outline=tuple(min(255, int(c * 1.25)) for c in accent), width=2)
+    if logo:
+        fit = ImageOps.contain(logo.convert("RGBA"), (36, 36), Image.Resampling.LANCZOS)
+        badge.alpha_composite(fit, ((56 - fit.width) // 2, (56 - fit.height) // 2))
+    else:
+        s = (coin_data.get("symbol", "?")[:1]).upper()
+        sf = ath_font(24, bold=True)
+        sw = bd.textbbox((0, 0), s, font=sf)[2]
+        sh = bd.textbbox((0, 0), s, font=sf)[3]
+        bd.text(((56 - sw) // 2, (56 - sh) // 2 - 1), s, fill="#F2F7FF", font=sf)
+    img.paste(badge, (pill_x + 14, pill_y + 16), badge)
+
+    sym = (coin_data.get("symbol") or coin_data.get("name", "COIN")).upper()
+    draw.text((pill_x + 84, pill_y + 24), sym, fill="#F4F7FC", font=ath_font(40, bold=True))
+
+    # Title
+    title = f"{coin_data['name']} ALL-TIME HIGH"
+    tf = fit_font(draw, title, panel_w - 420, 54, 26, bold=True)
+    draw.text((panel_x + 46, panel_y + 52), title, fill="#F4F9FF", font=tf)
+
+    # Date parse
+    try:
+        ath_date = datetime.fromisoformat(str(coin_data.get("ath_date", "")).replace("Z", "+00:00"))
+        date_text = ath_date.strftime("%b %d, %Y")
+    except Exception:
+        date_text = str(coin_data.get("ath_date", "N/A"))[:20]
+
+    # Value rows
+    rows = [
+        ("ALL-TIME HIGH", f"${ath:,.2f}", "#38F2A1", (12, 66, 50), (56, 248, 173)),
+        ("CURRENT PRICE", f"${current:,.2f}", "#FFB238", (70, 52, 18), (255, 188, 86)),
+        ("ATH DATE", date_text, "#DCE9FF", (41, 57, 81), (105, 131, 171)),
+        ("DOWN FROM ATH", f"-{down_pct:.2f}%", "#FF6D78", (88, 28, 38), (255, 108, 121)),
+    ]
+
+    row_x = panel_x + 42
+    row_w = panel_w - 84
+    row_h = 108
+    row_gap = 18
+    start_y = panel_y + 154
+
+    for i, (label, value, vcol, bg, outline) in enumerate(rows):
+        y = start_y + i * (row_h + row_gap)
+        draw.rounded_rectangle([row_x + 2, y + 6, row_x + row_w + 2, y + row_h + 6], radius=28, fill=(0, 0, 0, 88))
+        draw.rounded_rectangle([row_x, y, row_x + row_w, y + row_h], radius=28, fill=bg)
+        draw.rounded_rectangle([row_x, y, row_x + row_w, y + row_h], radius=28, outline=outline, width=2)
+        draw.rounded_rectangle([row_x + 14, y + 10, row_x + row_w - 14, y + 18], radius=4, fill=(255, 255, 255, 34))
+        draw.text((row_x + 24, y + 20), label, fill="#B8C8E2", font=ath_font(25, bold=False))
+
+        vf = fit_font(draw, value, row_w - 56, 58, 26, bold=True)
+        draw.text((row_x + 24, y + 50), value, fill=vcol, font=vf)
+
+    wm = "Powered by @conesociety"
+    wf = ath_font(48, bold=False)
+    ww = draw.textbbox((0, 0), wm, font=wf)[2]
+    draw.text(((width - ww) // 2, panel_y + panel_h - 74), wm, fill="#8FA4C2", font=wf)
+
     return img
 
 def image_to_bytes(img):
