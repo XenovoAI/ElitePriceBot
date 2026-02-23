@@ -366,28 +366,28 @@ async def create_coin_card_async(coin_data, chart_data=None):
                 continue
         return ImageFont.load_default()
 
-    # Clean classic background
-    img = Image.new("RGB", (width, height), (15, 22, 33))
+    # Clean classic background (brighter contrast)
+    img = Image.new("RGB", (width, height), (18, 27, 40))
     draw = ImageDraw.Draw(img)
     for y in range(height):
         t = y / max(1, height - 1)
-        r = int(18 + (28 - 18) * t)
-        g = int(24 + (33 - 24) * t)
-        b = int(34 + (49 - 34) * t)
+        r = int(20 + (34 - 20) * t)
+        g = int(30 + (44 - 30) * t)
+        b = int(45 + (68 - 45) * t)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
     # Main board
     x0, y0 = 56, 44
     bw, bh = width - 112, height - 96
-    draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, fill=(20, 28, 40))
-    draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, outline=(72, 88, 112), width=2)
-    draw.rounded_rectangle([x0 + 8, y0 + 8, x0 + bw - 8, y0 + bh - 8], radius=28, outline=(52, 66, 88), width=1)
+    draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, fill=(24, 36, 52))
+    draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, outline=(98, 118, 147), width=2)
+    draw.rounded_rectangle([x0 + 8, y0 + 8, x0 + bw - 8, y0 + bh - 8], radius=28, outline=(66, 84, 110), width=1)
 
     # Coin pill top-right
     pill_x, pill_y = x0 + bw - 312, 96
     pill_w, pill_h = 262, 86
-    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, fill=(72, 86, 108))
-    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, outline=(112, 128, 153), width=2)
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, fill=(87, 103, 129))
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, outline=(146, 164, 194), width=2)
     logo = None
     logo_url = coin_data.get("logo_url")
     if logo_url:
@@ -399,17 +399,21 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     # Header row (fit price text so it never overlaps the coin pill)
     num_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
-    dollar_font = ui_font(46, bold=True)
-    draw.text((104, 100), "$", fill=coin_data["color"], font=dollar_font)
-    max_price_width = (pill_x - 18) - 164
-    price_font_size = 54
+    price_x = 100
+    max_price_width = (pill_x - 18) - price_x
+    price_font_size = 62
+    price_font = ui_font(price_font_size, bold=True)
+    full_text = f"${num_text}"
     while price_font_size >= 34:
-        pf = ui_font(price_font_size, bold=True)
-        tw = draw.textbbox((0, 0), num_text, font=pf)[2]
+        price_font = ui_font(price_font_size, bold=True)
+        tw = draw.textbbox((0, 0), full_text, font=price_font)[2]
         if tw <= max_price_width:
             break
         price_font_size -= 2
-    draw.text((164, 100), num_text, fill="#EEF3FA", font=ui_font(price_font_size, bold=True))
+    price_font = ui_font(price_font_size, bold=True)
+    dollar_w = draw.textbbox((0, 0), "$", font=price_font)[2]
+    draw.text((price_x, 96), "$", fill="#FFB238", font=price_font)
+    draw.text((price_x + dollar_w + 8, 96), num_text, fill="#FFFFFF", font=price_font)
 
     # Metric boxes
     label_font = ui_font(20, bold=False)
@@ -417,12 +421,12 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     def metric_box(mx, my, label, value):
         pos = value >= 0
-        box_bg = (34, 47, 66)
+        box_bg = (40, 57, 80)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, fill=box_bg)
-        draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, outline=(63, 79, 104), width=1)
-        draw.text((mx + 26, my + 12), label, fill="#8F9FB8", font=label_font)
+        draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, outline=(86, 106, 138), width=1)
+        draw.text((mx + 26, my + 12), label, fill="#A8BAD8", font=label_font)
         txt = f"{'+' if pos else ''}{value:.2f}%"
-        col = "#42D575" if pos else "#FF646B"
+        col = "#4FF28A" if pos else "#FF6D78"
         draw.text((mx + 26, my + 40), txt, fill=col, font=value_font)
         arrow = "▲" if pos else "▼"
         draw.text((mx + 446, my + 30), arrow, fill=col, font=ui_font(36, bold=True))
@@ -433,10 +437,10 @@ async def create_coin_card_async(coin_data, chart_data=None):
     # Chart frame
     chart_x, chart_y = x0 + 32, 348
     chart_w, chart_h = bw - 64, 286
-    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, fill=(21, 29, 42))
-    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, outline=(81, 98, 124), width=1)
+    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, fill=(22, 33, 49))
+    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, outline=(97, 118, 150), width=1)
 
-    grid_col = (76, 92, 116)
+    grid_col = (90, 111, 141)
     for i in range(1, 5):
         gy = chart_y + int(i * chart_h / 5)
         draw.line([(chart_x, gy), (chart_x + chart_w, gy)], fill=grid_col, width=1)
@@ -463,13 +467,14 @@ async def create_coin_card_async(coin_data, chart_data=None):
             py = chart_y + pad_y + (chart_h - 2 * pad_y) - ((p - mn) / rng) * (chart_h - 2 * pad_y)
             pts.append((px, py))
 
-        line_col = tuple(min(255, int(c * 1.15)) for c in accent)
+        line_col = tuple(min(255, int(c * 1.3)) for c in accent)
         overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         od = ImageDraw.Draw(overlay)
         area = pts + [(pts[-1][0], chart_y + chart_h - 2), (pts[0][0], chart_y + chart_h - 2)]
-        od.polygon(area, fill=(line_col[0], line_col[1], line_col[2], 44))
+        od.polygon(area, fill=(line_col[0], line_col[1], line_col[2], 58))
         img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
         draw = ImageDraw.Draw(img)
+        draw.line(pts, fill=(line_col[0], line_col[1], line_col[2],), width=10)
         draw.line(pts, fill=line_col, width=6)
     else:
         draw.text((chart_x + chart_w // 2 - 80, chart_y + chart_h // 2 - 12), "Loading chart...", fill="#8C9CB3", font=ui_font(20))
