@@ -349,9 +349,16 @@ async def create_coin_card_async(coin_data, chart_data=None):
     """Ultra-professional glassmorphism coin card"""
     width, height = 1000, 750
     
-    # Pure black background
-    img = Image.new('RGB', (width, height), (0, 0, 0))
+    # Deep high-contrast background
+    img = Image.new('RGB', (width, height), (8, 12, 22))
     draw = ImageDraw.Draw(img)
+
+    for y in range(height):
+        t = y / max(1, height - 1)
+        r = int(8 + (20 - 8) * t)
+        g = int(12 + (22 - 12) * t)
+        b = int(22 + (34 - 22) * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
     
     color_rgb = hex_to_rgb(coin_data["color"])
     change_24h = coin_data["change_24h"]
@@ -360,6 +367,12 @@ async def create_coin_card_async(coin_data, chart_data=None):
     # Main card with colored glow
     card_x, card_y = 40, 40
     card_w, card_h = width - 80, height - 80
+
+    # 3D drop shadow
+    shadow = Image.new('RGBA', (card_w + 30, card_h + 30), (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle([14, 14, card_w + 14, card_h + 14], radius=28, fill=(0, 0, 0, 100))
+    img.paste(shadow, (card_x - 8, card_y + 10), shadow)
     
     # Outer glow effect
     for i in range(6, 0, -1):
@@ -367,12 +380,12 @@ async def create_coin_card_async(coin_data, chart_data=None):
         draw.rounded_rectangle([card_x-i, card_y-i, card_x+card_w+i, card_y+card_h+i], 
                               radius=28, outline=glow_rgb, width=3)
     
-    # Dark gradient card background
+    # Dark metallic card background
     for dy in range(card_h):
         ratio = dy / card_h
-        r = int(35 + (55 - 35) * ratio)
-        g = int(40 + (60 - 40) * ratio)
-        b = int(45 + (65 - 45) * ratio)
+        r = int(28 + (46 - 28) * ratio)
+        g = int(34 + (52 - 34) * ratio)
+        b = int(44 + (70 - 44) * ratio)
         draw.line([(card_x, card_y + dy), (card_x + card_w, card_y + dy)], fill=(r, g, b))
     
     # Rounded mask
@@ -386,6 +399,11 @@ async def create_coin_card_async(coin_data, chart_data=None):
     
     # Redraw
     draw = ImageDraw.Draw(img)
+
+    # Bevel/highlight lines for 3D look
+    draw.line([(card_x + 18, card_y + 18), (card_x + card_w - 18, card_y + 18)], fill=(220, 232, 255), width=1)
+    draw.line([(card_x + 18, card_y + card_h - 14), (card_x + card_w - 18, card_y + card_h - 14)], fill=(8, 10, 16), width=2)
+    draw.line([(card_x + card_w - 14, card_y + 18), (card_x + card_w - 14, card_y + card_h - 18)], fill=(8, 10, 16), width=2)
     
     # Logo
     logo_url = coin_data.get("logo_url")
@@ -401,17 +419,17 @@ async def create_coin_card_async(coin_data, chart_data=None):
     # Price
     font_price = get_font(56, bold=True)
     price_text = f"${coin_data['price']:,.4f}" if coin_data['price'] < 10 else f"${coin_data['price']:,.2f}"
-    draw.text((70, 170), price_text, fill=color_rgb, font=font_price)
+    draw.text((70, 145), price_text, fill=color_rgb, font=font_price)
     
     # Change badges
-    badge_y = 280
+    badge_y = 320
     badge_w, badge_h = 220, 75
     
     font_label = get_font(11, bold=True)
     font_value = get_font(22, bold=True)
     
     # 24h badge
-    draw.text((70, badge_y - 30), "24H CHANGE", fill='#888888', font=font_label)
+    draw.text((70, badge_y - 34), "24H CHANGE", fill='#A9B6CA', font=font_label)
     bg_24h = (0, 50, 30) if change_24h >= 0 else (50, 0, 20)
     draw.rounded_rectangle([70, badge_y, 70 + badge_w, badge_y + badge_h], radius=30, fill=bg_24h)
     
@@ -427,7 +445,7 @@ async def create_coin_card_async(coin_data, chart_data=None):
     
     # 7d badge
     weekly_x = 320
-    draw.text((weekly_x, badge_y - 30), "7D CHANGE", fill='#888888', font=font_label)
+    draw.text((weekly_x, badge_y - 34), "7D CHANGE", fill='#A9B6CA', font=font_label)
     bg_7d = (0, 50, 30) if change_7d >= 0 else (50, 0, 20)
     draw.rounded_rectangle([weekly_x, badge_y, weekly_x + badge_w, badge_y + badge_h], radius=30, fill=bg_7d)
     
@@ -442,7 +460,7 @@ async def create_coin_card_async(coin_data, chart_data=None):
     draw.text((weekly_x + (badge_w - text_w_7d) // 2, badge_y + 22), text_7d, fill=color_7d, font=font_value)
     
     # Chart section
-    chart_y, chart_h = 400, 270
+    chart_y, chart_h = 430, 240
     chart_w, chart_x = width - 140, 70
     
     # Chart background with glow
@@ -452,10 +470,10 @@ async def create_coin_card_async(coin_data, chart_data=None):
                               radius=18, outline=glow_rgb, width=2)
     
     draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h],
-                          radius=15, fill=(25, 30, 40))
+                          radius=15, fill=(16, 22, 35))
     
     font_chart = get_font(12, bold=True)
-    draw.text((chart_x + 10, chart_y - 35), "7-DAY PRICE CHART", fill='#888888', font=font_chart)
+    draw.text((chart_x + 10, chart_y - 35), "7-DAY PRICE CHART", fill='#A6B4C8', font=font_chart)
     
     if chart_data and len(chart_data) > 10:
         min_price, max_price = min(chart_data), max(chart_data)
@@ -468,8 +486,9 @@ async def create_coin_card_async(coin_data, chart_data=None):
                  for i, price in enumerate(chart_data)]
         
         if len(points) > 1:
-            # Draw line with glow
-            draw.line(points, fill=color_rgb, width=5)
+            # Draw line with brighter color for clarity on mobile
+            line_color = tuple(min(255, int(c * 1.15)) for c in color_rgb)
+            draw.line(points, fill=line_color, width=6)
     else:
         font_msg = get_font(14)
         draw.text((chart_x + chart_w//2 - 60, chart_y + chart_h//2), 
