@@ -346,96 +346,83 @@ async def create_top_lux_grid_async(prices_data):
     return img.convert("RGB")
 
 async def create_coin_card_async(coin_data, chart_data=None):
-    """Reference-style premium card (exact mode)."""
     width, height = 1200, 760
-
-    # Coin-themed patterned outer background
     base_color = hex_to_rgb(coin_data["color"])
-    img = Image.new("RGB", (width, height), (20, 126, 197))
+
+    # Classic clean dark-blue background
+    img = Image.new("RGB", (width, height), (10, 20, 38))
     draw = ImageDraw.Draw(img)
     for y in range(height):
         t = y / max(1, height - 1)
-        r = int(min(255, max(0, base_color[0] * 0.85 + 20 - 18 * t)))
-        g = int(min(255, max(0, base_color[1] * 0.85 + 20 - 18 * t)))
-        b = int(min(255, max(0, base_color[2] * 0.85 + 20 - 18 * t)))
+        r = int(8 + (22 - 8) * t)
+        g = int(18 + (34 - 18) * t)
+        b = int(36 + (62 - 36) * t)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    # Subtle repeating pattern (coin symbol motif)
-    pat_color = (
-        min(255, int(base_color[0] * 1.1)),
-        min(255, int(base_color[1] * 1.1)),
-        min(255, int(base_color[2] * 1.1)),
-    )
-    motif = coin_data.get("symbol", "C")
-    if motif == "BTC":
-        motif = "₿"
-    step = 96
-    motif_font = get_font(40, bold=True)
-    for py in range(-20, height + 60, step):
-        for px in range(-30, width + 80, step):
-            draw.text((px, py), motif, fill=(pat_color[0], pat_color[1], pat_color[2], 90), font=motif_font)
+    # Main card panel
+    panel_x, panel_y = 56, 44
+    panel_w, panel_h = width - 112, height - 96
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, fill=(8, 12, 20))
+    frame = tuple(min(255, int(c * 1.2)) for c in base_color)
+    draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, outline=frame, width=2)
+    draw.rounded_rectangle([panel_x + 8, panel_y + 8, panel_x + panel_w - 8, panel_y + panel_h - 8], radius=30, outline=(72, 88, 112), width=1)
 
-    # Main black panel
-    panel_x, panel_y = 52, 42
-    panel_w, panel_h = width - 104, height - 104
-    draw.rounded_rectangle(
-        [panel_x, panel_y, panel_x + panel_w, panel_y + panel_h],
-        radius=42,
-        fill=(6, 8, 12),
-    )
-    draw.rounded_rectangle(
-        [panel_x, panel_y, panel_x + panel_w, panel_y + panel_h],
-        radius=42,
-        outline=(40, 52, 70),
-        width=2,
-    )
-    draw.line([(panel_x + 24, panel_y + 18), (panel_x + panel_w - 24, panel_y + 18)], fill=(120, 132, 152), width=1)
-
-    # Top row: big price left
+    # Header row
     price = float(coin_data["price"])
     color_rgb = hex_to_rgb(coin_data["color"])
     number_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
-    # Dollar accent + cream number, like reference
-    draw.text((112, 104), "$", fill=coin_data["color"], font=get_font(52, bold=True))
-    draw.text((162, 104), number_text, fill="#F2EBD8", font=get_font(52, bold=True))
+    draw.text((114, 108), "$", fill=coin_data["color"], font=get_font(50, bold=True))
+    draw.text((162, 108), number_text, fill="#EAF1FF", font=get_font(52, bold=True))
 
-    # Coin pill right
-    pill_x, pill_y = panel_x + panel_w - 390, 92
-    pill_w, pill_h = 336, 96
-    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=46, fill=(237, 228, 204))
-    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=46, outline=(245, 237, 219), width=2)
+    # Coin pill (simple, professional)
+    pill_x, pill_y = panel_x + panel_w - 378, 98
+    pill_w, pill_h = 330, 94
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=44, fill=(226, 236, 248))
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=44, outline=(246, 250, 255), width=2)
     logo_url = coin_data.get("logo_url")
     if logo_url:
-            logo = await download_logo(logo_url, 46)
-            if logo:
-                img.paste(logo, (pill_x + 18, pill_y + 25), logo)
-    draw.text((pill_x + 98, pill_y + 22), coin_data["name"], fill=(8, 12, 20), font=get_font(32, bold=True))
+        logo = await download_logo(logo_url, 46)
+        if logo:
+            img.paste(logo, (pill_x + 18, pill_y + 24), logo)
+    draw.text((pill_x + 100, pill_y + 24), coin_data["name"], fill=(8, 14, 24), font=get_font(31, bold=True))
 
-    # Center badges (daily/weekly)
+    # Change badges
     change_24h = float(coin_data["change_24h"])
     change_7d = float(coin_data.get("change_7d", 0))
     label_font = get_font(15, bold=True)
-    value_font = get_font(36, bold=True)
+    value_font = get_font(34, bold=True)
 
     def draw_change_badge(x, y, label, val):
         is_pos = val >= 0
-        lbl_color = "#00F08C" if is_pos else "#FF2F2F"
-        bg = (4, 109, 54) if is_pos else (118, 10, 10)
-        fg = "#00F390" if is_pos else "#FF2F2F"
-        draw.text((x + 34, y - 38), label, fill=lbl_color, font=label_font)
-        draw.rounded_rectangle([x, y, x + 250, y + 96], radius=42, fill=bg)
+        lbl_color = "#2CEAA3" if is_pos else "#FF4343"
+        bg = (7, 96, 60) if is_pos else (104, 18, 24)
+        fg = "#28F0AA" if is_pos else "#FF5454"
+        draw.text((x + 20, y - 36), label, fill=lbl_color, font=label_font)
+        draw.rounded_rectangle([x, y, x + 246, y + 88], radius=32, fill=bg)
+        draw.rounded_rectangle([x, y, x + 246, y + 88], radius=32, outline=fg, width=2)
         txt = f"{'+' if is_pos else ''}{val:.2f}%"
         tw = draw.textbbox((0, 0), txt, font=value_font)[2]
-        draw.text((x + (250 - tw) // 2, y + 18), txt, fill=fg, font=value_font)
+        draw.text((x + (246 - tw) // 2, y + 16), txt, fill=fg, font=value_font)
 
     badge_y = 248
-    draw_change_badge(365, badge_y, "DAILY CHANGE", change_24h)
-    draw_change_badge(635, badge_y, "WEEKLY CHANGE", change_7d)
+    draw_change_badge(342, badge_y, "24H CHANGE", change_24h)
+    draw_change_badge(608, badge_y, "7D CHANGE", change_7d)
 
-    # Bottom chart area
-    chart_x, chart_y = 108, 430
+    # Chart container
+    chart_x, chart_y = 108, 424
     chart_w, chart_h = width - 216, 224
-    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=16, fill=(8, 10, 14))
+    draw.text((chart_x + 10, chart_y - 40), "7-DAY PRICE CHART", fill="#D7E2F5", font=get_font(16, bold=True))
+    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=14, fill=(13, 23, 44))
+    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=14, outline=(67, 92, 128), width=2)
+
+    # Grid lines
+    grid_col = (54, 77, 106)
+    for i in range(1, 6):
+        yy = chart_y + int(i * (chart_h / 6))
+        draw.line([(chart_x + 12, yy), (chart_x + chart_w - 12, yy)], fill=grid_col, width=1)
+    for i in range(1, 8):
+        xx = chart_x + int(i * (chart_w / 8))
+        draw.line([(xx, chart_y + 10), (xx, chart_y + chart_h - 10)], fill=grid_col, width=1)
 
     if chart_data and len(chart_data) > 10:
         min_p, max_p = min(chart_data), max(chart_data)
@@ -447,36 +434,29 @@ async def create_coin_card_async(coin_data, chart_data=None):
             py = chart_y + pad + (chart_h - 2 * pad) - ((p - min_p) / rng) * (chart_h - 2 * pad)
             points.append((px, py))
 
-        # Gradient area fill effect (stacked translucent polygons)
-        line_color = (0, 206, 103) if change_24h >= 0 else (231, 18, 18)
-        for alpha, drop in [(100, 0), (68, 8), (40, 18)]:
-            overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-            od = ImageDraw.Draw(overlay)
-            area = points + [(points[-1][0], chart_y + chart_h - 8), (points[0][0], chart_y + chart_h - 8)]
-            fill_col = (line_color[0], line_color[1], line_color[2], alpha)
-            shifted = [(x, y + drop) for (x, y) in area]
-            od.polygon(shifted, fill=fill_col)
-            img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-            draw = ImageDraw.Draw(img)
-
-        draw.line(points, fill=line_color, width=6)
+        line_color = (94, 233, 255)
+        area_color = (28, 171, 255, 62)
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        od = ImageDraw.Draw(overlay)
+        area = points + [(points[-1][0], chart_y + chart_h - 10), (points[0][0], chart_y + chart_h - 10)]
+        od.polygon(area, fill=area_color)
+        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+        draw = ImageDraw.Draw(img)
+        draw.line(points, fill=line_color, width=5)
     else:
         draw.text((chart_x + chart_w // 2 - 72, chart_y + chart_h // 2 - 14), "Loading chart...", fill="#6B7B90", font=get_font(14))
 
     # Date ticks (last 8 days)
     tick_font = get_font(9, bold=True)
-    ticks = []
     now = datetime.now()
-    for day_back in range(7, -1, -1):
-        dt = now - timedelta(days=day_back)
-        ticks.append(dt.strftime("%b.%d"))
+    ticks = [(now - timedelta(days=day_back)).strftime("%b.%d") for day_back in range(7, -1, -1)]
     for i, t in enumerate(ticks):
-        tx = chart_x + 4 + i * ((chart_w - 12) // 7)
-        draw.text((tx, chart_y + chart_h + 8), t, fill="#737B83", font=tick_font)
+        tx = chart_x + 6 + i * ((chart_w - 18) // 7)
+        draw.text((tx, chart_y + chart_h + 8), t, fill="#8B97A9", font=tick_font)
 
     # Watermark
     wm = f"{WATERMARK} • {datetime.now().strftime('%H:%M:%S')}"
-    draw.text((width // 2 - 160, height - 24), wm, fill="#5B6877", font=get_font(10))
+    draw.text((width // 2 - 156, height - 24), wm, fill="#70829A", font=get_font(10))
 
     return img
 
