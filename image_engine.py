@@ -1,4 +1,4 @@
-﻿from PIL import Image, ImageDraw, ImageFont, ImageFilter
+﻿from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 import io
 import asyncio
 import aiohttp
@@ -366,6 +366,33 @@ async def create_coin_card_async(coin_data, chart_data=None):
                 continue
         return ImageFont.load_default()
 
+    def make_logo_badge(logo_img, size, accent_rgb, fallback_text):
+        """Create crisp circular logo badge with ring + fallback."""
+        badge = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(badge)
+        outer = tuple(min(255, int(c * 1.25)) for c in accent_rgb)
+        inner = tuple(min(255, int(c * 0.55 + 28)) for c in accent_rgb)
+
+        bd.ellipse([0, 0, size - 1, size - 1], fill=(15, 22, 33, 255), outline=outer, width=2)
+        bd.ellipse([3, 3, size - 4, size - 4], fill=inner)
+
+        if logo_img:
+            logo_rgba = logo_img.convert("RGBA")
+            inset = int(size * 0.16)
+            content_size = (size - inset * 2, size - inset * 2)
+            logo_fit = ImageOps.contain(logo_rgba, content_size, Image.Resampling.LANCZOS)
+            lx = (size - logo_fit.width) // 2
+            ly = (size - logo_fit.height) // 2
+            badge.alpha_composite(logo_fit, (lx, ly))
+        else:
+            ch = (fallback_text[:1] if fallback_text else "?").upper()
+            f = ui_font(max(16, int(size * 0.42)), bold=True)
+            tw = bd.textbbox((0, 0), ch, font=f)[2]
+            th = bd.textbbox((0, 0), ch, font=f)[3]
+            bd.text(((size - tw) // 2, (size - th) // 2 - 1), ch, fill="#F7FBFF", font=f)
+
+        return badge
+
     # Clean classic background (brighter contrast)
     img = Image.new("RGB", (width, height), (18, 27, 40))
     draw = ImageDraw.Draw(img)
@@ -376,26 +403,51 @@ async def create_coin_card_async(coin_data, chart_data=None):
         b = int(45 + (68 - 45) * t)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    # Main board
+    # Main board (3D depth + glass)
     x0, y0 = 56, 44
     bw, bh = width - 112, height - 96
+    board_shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    sdraw = ImageDraw.Draw(board_shadow)
+    sdraw.rounded_rectangle([x0 + 8, y0 + 14, x0 + bw + 8, y0 + bh + 14], radius=34, fill=(0, 0, 0, 95))
+    board_shadow = board_shadow.filter(ImageFilter.GaussianBlur(8))
+    img = Image.alpha_composite(img.convert("RGBA"), board_shadow).convert("RGB")
+    draw = ImageDraw.Draw(img)
     draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, fill=(24, 36, 52))
     draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, outline=(98, 118, 147), width=2)
     draw.rounded_rectangle([x0 + 8, y0 + 8, x0 + bw - 8, y0 + bh - 8], radius=28, outline=(66, 84, 110), width=1)
+    sheen = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    shd = ImageDraw.Draw(sheen)
+    shd.polygon([(x0 + 10, y0 + 14), (x0 + bw - 10, y0 + 14), (x0 + bw - 110, y0 + 82), (x0 + 120, y0 + 82)], fill=(180, 210, 255, 22))
+    img = Image.alpha_composite(img.convert("RGBA"), sheen).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    # Accent strip and corner glow for a richer premium look
+    strip_h = 8
+    for dy in range(strip_h):
+        t = dy / max(1, strip_h - 1)
+        col = tuple(min(255, int(c * (0.85 + 0.25 * (1 - t)))) for c in accent)
+        draw.rounded_rectangle([x0 + 22, y0 + 16 + dy, x0 + bw - 22, y0 + 20 + dy], radius=3, fill=col)
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse([x0 - 40, y0 - 40, x0 + 250, y0 + 220], fill=(accent[0], accent[1], accent[2], 26))
+    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
+    draw = ImageDraw.Draw(img)
 
     # Coin pill top-right
     pill_x, pill_y = x0 + bw - 312, 96
     pill_w, pill_h = 262, 86
+    draw.rounded_rectangle([pill_x + 2, pill_y + 6, pill_x + pill_w + 2, pill_y + pill_h + 6], radius=38, fill=(0, 0, 0, 80))
     draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, fill=(87, 103, 129))
     draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=38, outline=(146, 164, 194), width=2)
+    draw.rounded_rectangle([pill_x + 16, pill_y + 10, pill_x + pill_w - 16, pill_y + 20], radius=5, fill=(190, 214, 242, 45))
     logo = None
     logo_url = coin_data.get("logo_url")
     if logo_url:
-        logo = await download_logo(logo_url, 44)
-    if logo:
-        img.paste(logo, (pill_x + 16, pill_y + 21), logo)
+        logo = await download_logo(logo_url, 46)
+    logo_badge = make_logo_badge(logo, 52, accent, coin_data.get("symbol", ""))
+    img.paste(logo_badge, (pill_x + 12, pill_y + 17), logo_badge)
     symbol = coin_data.get("symbol", "").upper()
-    draw.text((pill_x + 74, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=ui_font(28, bold=True))
+    draw.text((pill_x + 76, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=ui_font(28, bold=True))
 
     # Header row (fit price text so it never overlaps the coin pill)
     num_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
@@ -412,7 +464,9 @@ async def create_coin_card_async(coin_data, chart_data=None):
         price_font_size -= 2
     price_font = ui_font(price_font_size, bold=True)
     dollar_w = draw.textbbox((0, 0), "$", font=price_font)[2]
-    draw.text((price_x, 96), "$", fill="#FFB238", font=price_font)
+    draw.text((price_x + 1, 99), "$", fill=(0, 0, 0), font=price_font)
+    draw.text((price_x + dollar_w + 9, 99), num_text, fill=(0, 0, 0), font=price_font)
+    draw.text((price_x, 96), "$", fill="#FFC24A", font=price_font)
     draw.text((price_x + dollar_w + 8, 96), num_text, fill="#FFFFFF", font=price_font)
 
     # Metric boxes
@@ -422,8 +476,10 @@ async def create_coin_card_async(coin_data, chart_data=None):
     def metric_box(mx, my, label, value):
         pos = value >= 0
         box_bg = (40, 57, 80)
+        draw.rounded_rectangle([mx + 2, my + 6, mx + 502, my + 92], radius=24, fill=(0, 0, 0, 88))
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, fill=box_bg)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, outline=(86, 106, 138), width=1)
+        draw.rounded_rectangle([mx + 10, my + 8, mx + 490, my + 14], radius=4, fill=(104, 126, 160))
         draw.text((mx + 26, my + 12), label, fill="#A8BAD8", font=label_font)
         txt = f"{'+' if pos else ''}{value:.2f}%"
         col = "#4FF28A" if pos else "#FF6D78"
@@ -437,6 +493,7 @@ async def create_coin_card_async(coin_data, chart_data=None):
     # Chart frame
     chart_x, chart_y = x0 + 32, 348
     chart_w, chart_h = bw - 64, 286
+    draw.rounded_rectangle([chart_x + 2, chart_y + 6, chart_x + chart_w + 2, chart_y + chart_h + 6], radius=8, fill=(0, 0, 0, 90))
     draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, fill=(22, 33, 49))
     draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, outline=(97, 118, 150), width=1)
 
@@ -475,6 +532,13 @@ async def create_coin_card_async(coin_data, chart_data=None):
         img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
         draw = ImageDraw.Draw(img)
         draw.line(pts, fill=(line_col[0], line_col[1], line_col[2],), width=10)
+        draw.line(pts, fill=line_col, width=6)
+        glow_overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        god = ImageDraw.Draw(glow_overlay)
+        god.line(pts, fill=(line_col[0], line_col[1], line_col[2], 90), width=14)
+        glow_overlay = glow_overlay.filter(ImageFilter.GaussianBlur(5))
+        img = Image.alpha_composite(img.convert("RGBA"), glow_overlay).convert("RGB")
+        draw = ImageDraw.Draw(img)
         draw.line(pts, fill=line_col, width=6)
     else:
         draw.text((chart_x + chart_w // 2 - 80, chart_y + chart_h // 2 - 12), "Loading chart...", fill="#8C9CB3", font=ui_font(20))
