@@ -352,6 +352,20 @@ async def create_coin_card_async(coin_data, chart_data=None):
     change_24h = float(coin_data["change_24h"])
     change_7d = float(coin_data.get("change_7d", 0))
 
+    def ui_font(size, bold=False):
+        """Card-specific typography: cleaner and less oversized than global font helper."""
+        fonts = [
+            "C:\\Windows\\Fonts\\segoeuib.ttf" if bold else "C:\\Windows\\Fonts\\segoeui.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ]
+        for f in fonts:
+            try:
+                return ImageFont.truetype(f, size)
+            except:
+                continue
+        return ImageFont.load_default()
+
     # Clean classic background
     img = Image.new("RGB", (width, height), (15, 22, 33))
     draw = ImageDraw.Draw(img)
@@ -371,8 +385,8 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     # Header row
     num_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
-    draw.text((104, 102), "$", fill=coin_data["color"], font=get_font(54, bold=True))
-    draw.text((156, 102), num_text, fill="#EDF2FB", font=get_font(54, bold=True))
+    draw.text((104, 96), "$", fill=coin_data["color"], font=ui_font(52, bold=True))
+    draw.text((156, 96), num_text, fill="#EEF3FA", font=ui_font(72, bold=True))
 
     # Coin pill top-right
     pill_x, pill_y = x0 + bw - 312, 96
@@ -386,23 +400,23 @@ async def create_coin_card_async(coin_data, chart_data=None):
     if logo:
         img.paste(logo, (pill_x + 16, pill_y + 21), logo)
     symbol = coin_data.get("symbol", "").upper()
-    draw.text((pill_x + 74, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=get_font(30, bold=True))
+    draw.text((pill_x + 74, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=ui_font(48, bold=True))
 
     # Metric boxes
-    label_font = get_font(14, bold=True)
-    value_font = get_font(34, bold=True)
+    label_font = ui_font(39, bold=False)
+    value_font = ui_font(54, bold=True)
 
     def metric_box(mx, my, label, value):
         pos = value >= 0
         box_bg = (34, 47, 66)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, fill=box_bg)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, outline=(63, 79, 104), width=1)
-        draw.text((mx + 26, my + 12), label, fill="#9CADC6", font=label_font)
+        draw.text((mx + 26, my + 10), label, fill="#8F9FB8", font=label_font)
         txt = f"{'+' if pos else ''}{value:.2f}%"
-        col = "#46D17A" if pos else "#FF5C64"
-        draw.text((mx + 26, my + 40), txt, fill=col, font=value_font)
-        arrow = "↗" if pos else "↘"
-        draw.text((mx + 446, my + 30), arrow, fill=col, font=get_font(30, bold=True))
+        col = "#42D575" if pos else "#FF646B"
+        draw.text((mx + 26, my + 34), txt, fill=col, font=value_font)
+        arrow = "▲" if pos else "▼"
+        draw.text((mx + 444, my + 24), arrow, fill=col, font=ui_font(48, bold=True))
 
     metric_box(x0 + 28, 232, "24H CHANGE", change_24h)
     metric_box(x0 + 548, 232, "7D CHANGE", change_7d)
@@ -410,7 +424,7 @@ async def create_coin_card_async(coin_data, chart_data=None):
     # Chart frame
     chart_x, chart_y = x0 + 32, 348
     chart_w, chart_h = bw - 64, 286
-    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, fill=(22, 30, 44))
+    draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, fill=(21, 29, 42))
     draw.rounded_rectangle([chart_x, chart_y, chart_x + chart_w, chart_y + chart_h], radius=8, outline=(81, 98, 124), width=1)
 
     grid_col = (76, 92, 116)
@@ -422,12 +436,20 @@ async def create_coin_card_async(coin_data, chart_data=None):
         draw.line([(gx, chart_y), (gx, chart_y + chart_h)], fill=grid_col, width=1)
 
     if chart_data and len(chart_data) > 10:
-        mn, mx = min(chart_data), max(chart_data)
+        # Smooth noisy candles for a cleaner premium curve
+        smooth = []
+        win = 3
+        for i in range(len(chart_data)):
+            lo = max(0, i - win)
+            hi = min(len(chart_data), i + win + 1)
+            smooth.append(sum(chart_data[lo:hi]) / (hi - lo))
+
+        mn, mx = min(smooth), max(smooth)
         rng = mx - mn if mx != mn else 1.0
         pad_x, pad_y = 12, 14
         pts = []
-        n = len(chart_data)
-        for i, p in enumerate(chart_data):
+        n = len(smooth)
+        for i, p in enumerate(smooth):
             px = chart_x + pad_x + (i / (n - 1)) * (chart_w - 2 * pad_x)
             py = chart_y + pad_y + (chart_h - 2 * pad_y) - ((p - mn) / rng) * (chart_h - 2 * pad_y)
             pts.append((px, py))
@@ -439,12 +461,12 @@ async def create_coin_card_async(coin_data, chart_data=None):
         od.polygon(area, fill=(line_col[0], line_col[1], line_col[2], 44))
         img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
         draw = ImageDraw.Draw(img)
-        draw.line(pts, fill=line_col, width=5)
+        draw.line(pts, fill=line_col, width=6)
     else:
-        draw.text((chart_x + chart_w // 2 - 80, chart_y + chart_h // 2 - 12), "Loading chart...", fill="#8C9CB3", font=get_font(14))
+        draw.text((chart_x + chart_w // 2 - 80, chart_y + chart_h // 2 - 12), "Loading chart...", fill="#8C9CB3", font=ui_font(20))
 
     # Date ticks
-    tick_font = get_font(9, bold=True)
+    tick_font = ui_font(20, bold=False)
     now = datetime.now()
     ticks = [(now - timedelta(days=day_back)).strftime("%b %d").upper() for day_back in range(7, -1, -1)]
     for i, t in enumerate(ticks):
@@ -453,8 +475,8 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     # Watermark
     wm = "Powered by @conesociety"
-    ww = draw.textbbox((0, 0), wm, font=get_font(11, bold=True))[2]
-    draw.text(((width - ww) // 2, height - 28), wm, fill="#A6B5C9", font=get_font(11, bold=True))
+    ww = draw.textbbox((0, 0), wm, font=ui_font(26, bold=False))[2]
+    draw.text(((width - ww) // 2, height - 28), wm, fill="#9EB0C7", font=ui_font(26, bold=False))
 
     return img
 
