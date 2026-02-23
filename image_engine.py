@@ -623,15 +623,26 @@ async def create_convert_card_async(coin_data, amount, cross_data=None):
     draw.rounded_rectangle([panel_x, panel_y, panel_x + panel_w, panel_y + panel_h], radius=36, outline=(128, 153, 190), width=2)
     draw.rounded_rectangle([panel_x + 9, panel_y + 9, panel_x + panel_w - 9, panel_y + panel_h - 9], radius=31, outline=(74, 95, 130), width=1)
 
+    def draw_value_with_unit(x, y, value_text, unit_text, max_w, value_color, unit_color):
+        unit_font = cv_font(32, bold=True)
+        unit_w = draw.textbbox((0, 0), unit_text, font=unit_font)[2]
+        value_font = fit_font(value_text, max_w - unit_w - 14, 60, 24, bold=True)
+        value_w = draw.textbbox((0, 0), value_text, font=value_font)[2]
+        draw.text((x, y), value_text, fill=value_color, font=value_font)
+        draw.text((x + value_w + 14, y + max(0, (value_font.size - unit_font.size) // 2)), unit_text, fill=unit_color, font=unit_font)
+
     # Title
     title = "CRYPTO CONVERTER"
-    tf = cv_font(64, bold=True)
+    tf = cv_font(56, bold=True)
     tw = draw.textbbox((0, 0), title, font=tf)[2]
-    draw.text(((width - tw) // 2, panel_y + 46), title, fill="#F4F9FF", font=tf)
+    tx = (width - tw) // 2
+    ty = panel_y + 52
+    draw.text((tx + 1, ty + 2), title, fill=(8, 14, 25), font=tf)
+    draw.text((tx, ty), title, fill="#F4F9FF", font=tf)
 
     # Left source box
-    lx, ly = panel_x + 46, panel_y + 258
-    lw, lh = 360, 132
+    lx, ly = panel_x + 40, panel_y + 244
+    lw, lh = 390, 132
     draw.rounded_rectangle([lx + 2, ly + 6, lx + lw + 2, ly + lh + 6], radius=38, fill=(0, 0, 0, 90))
     draw.rounded_rectangle([lx, ly, lx + lw, ly + lh], radius=38, fill=(52, 72, 102))
     draw.rounded_rectangle([lx, ly, lx + lw, ly + lh], radius=38, outline=tuple(min(255, int(c * 1.25)) for c in accent), width=3)
@@ -656,16 +667,15 @@ async def create_convert_card_async(coin_data, amount, cross_data=None):
     img.paste(badge, (lx + 22, ly + 30), badge)
 
     left_text = f"{amount_text} {symbol}"
-    left_font = fit_font(left_text, 230, 62, 26, bold=True)
+    left_font = fit_font(left_text, 260, 56, 26, bold=True)
     draw.text((lx + 108, ly + 43), left_text, fill="#F2F7FF", font=left_font)
 
     # Arrow
-    draw.text((lx + lw + 18, ly + 28), "=", fill="#EAF2FF", font=cv_font(74, bold=True))
-    draw.text((lx + lw + 70, ly + 20), ">", fill="#FFE6C0", font=cv_font(96, bold=True))
+    draw.text((lx + lw + 20, ly + 36), "=>", fill="#F4F8FF", font=cv_font(64, bold=True))
 
     # Right result panel (4 rows: USD + ETH + SOL + TON)
-    rx, ry = panel_x + 550, panel_y + 158
-    rw, rh = 520, 430
+    rx, ry = panel_x + 548, panel_y + 154
+    rw, rh = 522, 430
     draw.rounded_rectangle([rx + 3, ry + 8, rx + rw + 3, ry + rh + 8], radius=30, fill=(0, 0, 0, 95))
     draw.rounded_rectangle([rx, ry, rx + rw, ry + rh], radius=30, fill=(25, 37, 56))
     draw.rounded_rectangle([rx, ry, rx + rw, ry + rh], radius=30, outline=(82, 106, 142), width=2)
@@ -684,11 +694,8 @@ async def create_convert_card_async(coin_data, amount, cross_data=None):
             target_logos[ts] = await download_logo(td["logo_url"], 34)
 
     # USD row
-    usd_font = fit_font(usd_text, rw - 54, 66, 30, bold=True)
-    uw = draw.textbbox((0, 0), usd_text, font=usd_font)[2]
-    draw.text((rx + 28, ry + 18), usd_text, fill="#FFFFFF", font=usd_font)
-    usd_label_x = min(rx + rw - 94, rx + 28 + uw + 10)
-    draw.text((usd_label_x, ry + 38), "USD", fill="#9FB3CE", font=cv_font(40, bold=False))
+    draw.text((rx + 28, ry + 12), "TOTAL VALUE", fill="#9FB3CE", font=cv_font(18, bold=False))
+    draw_value_with_unit(rx + 28, ry + 34, usd_text, "USD", rw - 56, "#FFFFFF", "#AFC1DA")
 
     # Coin rows
     for idx, ts in enumerate(target_symbols, start=1):
@@ -696,9 +703,11 @@ async def create_convert_card_async(coin_data, amount, cross_data=None):
         row_y = ry + idx * row_h
         if td and float(td.get("price", 0)) > 0:
             conv = usd_value / float(td["price"])
-            txt = f"{format_amount(conv)} {ts.upper()}"
+            txt_num = format_amount(conv)
+            txt_unit = ts.upper()
         else:
-            txt = f"-- {ts.upper()}"
+            txt_num = "--"
+            txt_unit = ts.upper()
 
         # Small logo badge
         bx, by = rx + 26, row_y + 26
@@ -717,15 +726,18 @@ async def create_convert_card_async(coin_data, amount, cross_data=None):
             md.text(((44 - sw) // 2, (44 - sh) // 2 - 1), ch, fill="#EAF2FF", font=sfont)
         img.paste(mini, (bx, by), mini)
 
-        row_font = fit_font(txt, rw - 120, 50, 24, bold=True)
-        color = "#D8E7FF" if td else "#9AAEC9"
-        draw.text((rx + 84, row_y + 22), txt, fill=color, font=row_font)
+        draw.text((rx + 84, row_y + 16), f"{txt_unit} EQUIV", fill="#8FA6C7", font=cv_font(16, bold=False))
+        if td:
+            draw_value_with_unit(rx + 84, row_y + 38, txt_num, txt_unit, rw - 118, "#EAF2FF", "#C8D8F2")
+        else:
+            row_font = fit_font(f"{txt_num} {txt_unit}", rw - 118, 44, 22, bold=True)
+            draw.text((rx + 84, row_y + 36), f"{txt_num} {txt_unit}", fill="#9AAEC9", font=row_font)
 
     # Footer
     wm = "Powered by @conesociety"
-    wf = cv_font(48, bold=False)
+    wf = cv_font(22, bold=False)
     ww = draw.textbbox((0, 0), wm, font=wf)[2]
-    draw.text(((width - ww) // 2, panel_y + panel_h - 72), wm, fill="#8FA4C2", font=wf)
+    draw.text(((width - ww) // 2, panel_y + panel_h - 48), wm, fill="#8FA4C2", font=wf)
 
     return img
 
@@ -815,11 +827,12 @@ async def create_ath_card_async(coin_data):
     img.paste(badge, (pill_x + 14, pill_y + 16), badge)
 
     sym = (coin_data.get("symbol") or coin_data.get("name", "COIN")).upper()
-    draw.text((pill_x + 84, pill_y + 24), sym, fill="#F4F7FC", font=ath_font(40, bold=True))
+    draw.text((pill_x + 84, pill_y + 26), sym, fill="#F4F7FC", font=ath_font(36, bold=True))
 
     # Title
     title = f"{coin_data['name']} ALL-TIME HIGH"
-    tf = fit_font(draw, title, panel_w - 420, 54, 26, bold=True)
+    tf = fit_font(draw, title, panel_w - 420, 50, 24, bold=True)
+    draw.text((panel_x + 47, panel_y + 55), title, fill=(8, 14, 25), font=tf)
     draw.text((panel_x + 46, panel_y + 52), title, fill="#F4F9FF", font=tf)
 
     # Date parse
@@ -839,9 +852,9 @@ async def create_ath_card_async(coin_data):
 
     row_x = panel_x + 42
     row_w = panel_w - 84
-    row_h = 108
-    row_gap = 18
-    start_y = panel_y + 154
+    row_h = 96
+    row_gap = 14
+    start_y = panel_y + 164
 
     for i, (label, value, vcol, bg, outline) in enumerate(rows):
         y = start_y + i * (row_h + row_gap)
@@ -849,15 +862,15 @@ async def create_ath_card_async(coin_data):
         draw.rounded_rectangle([row_x, y, row_x + row_w, y + row_h], radius=28, fill=bg)
         draw.rounded_rectangle([row_x, y, row_x + row_w, y + row_h], radius=28, outline=outline, width=2)
         draw.rounded_rectangle([row_x + 14, y + 10, row_x + row_w - 14, y + 18], radius=4, fill=(255, 255, 255, 34))
-        draw.text((row_x + 24, y + 20), label, fill="#B8C8E2", font=ath_font(25, bold=False))
+        draw.text((row_x + 24, y + 18), label, fill="#B8C8E2", font=ath_font(20, bold=False))
 
-        vf = fit_font(draw, value, row_w - 56, 58, 26, bold=True)
-        draw.text((row_x + 24, y + 50), value, fill=vcol, font=vf)
+        vf = fit_font(draw, value, row_w - 56, 50, 24, bold=True)
+        draw.text((row_x + 24, y + 44), value, fill=vcol, font=vf)
 
     wm = "Powered by @conesociety"
-    wf = ath_font(48, bold=False)
+    wf = ath_font(22, bold=False)
     ww = draw.textbbox((0, 0), wm, font=wf)[2]
-    draw.text(((width - ww) // 2, panel_y + panel_h - 74), wm, fill="#8FA4C2", font=wf)
+    draw.text(((width - ww) // 2, panel_y + panel_h - 48), wm, fill="#8FA4C2", font=wf)
 
     return img
 
