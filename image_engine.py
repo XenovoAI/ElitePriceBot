@@ -383,11 +383,6 @@ async def create_coin_card_async(coin_data, chart_data=None):
     draw.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=34, outline=(72, 88, 112), width=2)
     draw.rounded_rectangle([x0 + 8, y0 + 8, x0 + bw - 8, y0 + bh - 8], radius=28, outline=(52, 66, 88), width=1)
 
-    # Header row
-    num_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
-    draw.text((104, 96), "$", fill=coin_data["color"], font=ui_font(52, bold=True))
-    draw.text((156, 96), num_text, fill="#EEF3FA", font=ui_font(72, bold=True))
-
     # Coin pill top-right
     pill_x, pill_y = x0 + bw - 312, 96
     pill_w, pill_h = 262, 86
@@ -400,23 +395,37 @@ async def create_coin_card_async(coin_data, chart_data=None):
     if logo:
         img.paste(logo, (pill_x + 16, pill_y + 21), logo)
     symbol = coin_data.get("symbol", "").upper()
-    draw.text((pill_x + 74, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=ui_font(48, bold=True))
+    draw.text((pill_x + 74, pill_y + 24), symbol if symbol else coin_data["name"], fill="#F4F7FC", font=ui_font(28, bold=True))
+
+    # Header row (fit price text so it never overlaps the coin pill)
+    num_text = f"{price:,.4f}" if price < 10 else f"{price:,.2f}"
+    dollar_font = ui_font(46, bold=True)
+    draw.text((104, 100), "$", fill=coin_data["color"], font=dollar_font)
+    max_price_width = (pill_x - 18) - 164
+    price_font_size = 54
+    while price_font_size >= 34:
+        pf = ui_font(price_font_size, bold=True)
+        tw = draw.textbbox((0, 0), num_text, font=pf)[2]
+        if tw <= max_price_width:
+            break
+        price_font_size -= 2
+    draw.text((164, 100), num_text, fill="#EEF3FA", font=ui_font(price_font_size, bold=True))
 
     # Metric boxes
-    label_font = ui_font(39, bold=False)
-    value_font = ui_font(54, bold=True)
+    label_font = ui_font(20, bold=False)
+    value_font = ui_font(44, bold=True)
 
     def metric_box(mx, my, label, value):
         pos = value >= 0
         box_bg = (34, 47, 66)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, fill=box_bg)
         draw.rounded_rectangle([mx, my, mx + 500, my + 86], radius=24, outline=(63, 79, 104), width=1)
-        draw.text((mx + 26, my + 10), label, fill="#8F9FB8", font=label_font)
+        draw.text((mx + 26, my + 12), label, fill="#8F9FB8", font=label_font)
         txt = f"{'+' if pos else ''}{value:.2f}%"
         col = "#42D575" if pos else "#FF646B"
-        draw.text((mx + 26, my + 34), txt, fill=col, font=value_font)
+        draw.text((mx + 26, my + 40), txt, fill=col, font=value_font)
         arrow = "▲" if pos else "▼"
-        draw.text((mx + 444, my + 24), arrow, fill=col, font=ui_font(48, bold=True))
+        draw.text((mx + 446, my + 30), arrow, fill=col, font=ui_font(36, bold=True))
 
     metric_box(x0 + 28, 232, "24H CHANGE", change_24h)
     metric_box(x0 + 548, 232, "7D CHANGE", change_7d)
