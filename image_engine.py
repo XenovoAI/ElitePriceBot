@@ -82,25 +82,23 @@ def draw_glassmorphism_card(draw, x, y, w, h, color_rgb, is_positive):
     draw.rounded_rectangle([x, y, x+w, y+h], radius=20, outline=border_color, width=2)
 
 async def create_top_grid_async(prices_data):
-    """ConeSociety daily board with centered symbols and tighter premium spacing."""
+    """Clean premium 3x3 board with reduced visual noise and strict alignment."""
     width, height = 1080, 1350
-    img = Image.new("RGBA", (width, height), (6, 10, 16, 255))
+    img = Image.new("RGBA", (width, height), (6, 10, 18, 255))
     draw = ImageDraw.Draw(img)
 
     for y in range(height):
         t = y / max(1, height - 1)
-        draw.line([(0, y), (width, y)], fill=(int(6 + 5 * t), int(10 + 14 * t), int(16 + 10 * t)))
+        draw.line([(0, y), (width, y)], fill=(int(6 + 6 * t), int(10 + 10 * t), int(18 + 8 * t)))
 
     bg_glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     gd = ImageDraw.Draw(bg_glow)
-    gd.ellipse([230, 930, 850, 1540], fill=(15, 198, 154, 78))
-    gd.ellipse([-180, 1060, 440, 1640], fill=(10, 80, 68, 36))
-    gd.ellipse([700, 1080, 1320, 1660], fill=(10, 100, 80, 30))
-    bg_glow = bg_glow.filter(ImageFilter.GaussianBlur(16))
+    gd.ellipse([310, 940, 780, 1380], fill=(18, 190, 152, 44))
+    bg_glow = bg_glow.filter(ImageFilter.GaussianBlur(20))
     img = Image.alpha_composite(img, bg_glow)
     draw = ImageDraw.Draw(img)
 
-    draw.rectangle([28, 26, width - 28, height - 26], outline=(24, 154, 136, 132), width=2)
+    draw.rectangle([28, 26, width - 28, height - 26], outline=(26, 156, 138, 132), width=2)
 
     brand_left = "CONE"
     brand_right = "SOCIETY"
@@ -135,7 +133,6 @@ async def create_top_grid_async(prices_data):
     for idx, coin in enumerate(coins):
         if coin not in prices_data:
             continue
-
         data = prices_data[coin]
         row, col = idx // cols, idx % cols
         x = margin_x + col * (tile_w + gap_x)
@@ -145,54 +142,46 @@ async def create_top_grid_async(prices_data):
 
         shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         sd = ImageDraw.Draw(shadow)
-        sd.rounded_rectangle([x + 2, y + 6, x + tile_w + 2, y + tile_h + 6], radius=26, fill=(0, 0, 0, 95))
-        shadow = shadow.filter(ImageFilter.GaussianBlur(3))
+        sd.rounded_rectangle([x + 2, y + 6, x + tile_w + 2, y + tile_h + 6], radius=26, fill=(0, 0, 0, 86))
+        shadow = shadow.filter(ImageFilter.GaussianBlur(4))
         img = Image.alpha_composite(img, shadow)
         draw = ImageDraw.Draw(img)
 
-        draw.rounded_rectangle([x, y, x + tile_w, y + tile_h], radius=26, fill=(29, 32, 40))
-        draw.rounded_rectangle([x, y, x + tile_w, y + tile_h], radius=26, outline=(122, 130, 146), width=1)
-        draw.rounded_rectangle([x + 10, y + 10, x + tile_w - 10, y + 18], radius=3, fill=(95, 103, 122, 140))
+        draw.rounded_rectangle([x, y, x + tile_w, y + tile_h], radius=26, fill=(30, 34, 43), outline=(120, 130, 148), width=1)
 
         accent_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         ad = ImageDraw.Draw(accent_layer)
-        ad.ellipse([x + tile_w // 2 - 128, y + tile_h - 72, x + tile_w // 2 + 128, y + tile_h + 92], fill=(accent[0], accent[1], accent[2], 125))
-        accent_layer = accent_layer.filter(ImageFilter.GaussianBlur(18))
+        ad.ellipse([x + tile_w // 2 - 120, y + tile_h - 66, x + tile_w // 2 + 120, y + tile_h + 66], fill=(accent[0], accent[1], accent[2], 92))
+        accent_layer = accent_layer.filter(ImageFilter.GaussianBlur(16))
         img = Image.alpha_composite(img, accent_layer)
         draw = ImageDraw.Draw(img)
 
-        for py in range(y + 54, y + tile_h - 24, 34):
-            draw.line([(x + 18, py), (x + tile_w - 18, py)], fill=(45, 50, 63), width=1)
-
+        # Vertical lockup: logo then symbol (avoids overlap and looks cleaner)
         symbol = data.get("symbol", coin.upper()).upper()
-        symbol_font = get_font(23, bold=True)
-        symbol_w = draw.textbbox((0, 0), symbol, font=symbol_font)[2]
-        logo_size = 42
-        row_y = y + 22
+        logo_size = 40
         logo_url = data.get("logo_url")
         logo = await download_logo(logo_url, logo_size) if logo_url else None
-        gap = 12 if logo else 0
-        row_w = (logo_size + gap + symbol_w) if logo else symbol_w
-        row_x = x + (tile_w - row_w) // 2
         if logo:
-            img.paste(logo, (row_x, row_y), logo)
-        draw.text((row_x + (logo_size + gap if logo else 0), row_y + 2), symbol, fill="#F2F6FC", font=symbol_font)
+            img.paste(logo, (x + (tile_w - logo_size) // 2, y + 22), logo)
+
+        symbol_font = get_font(22, bold=True)
+        symbol_w = draw.textbbox((0, 0), symbol, font=symbol_font)[2]
+        draw.text((x + (tile_w - symbol_w) // 2, y + 66), symbol, fill="#F2F6FC", font=symbol_font)
 
         price_txt = format_price(float(data["price"]))
         fp = get_font(30, bold=True)
         pw = draw.textbbox((0, 0), price_txt, font=fp)[2]
-        draw.text((x + (tile_w - pw) // 2, y + 102), price_txt, fill="#F8FBFF", font=fp)
+        draw.text((x + (tile_w - pw) // 2, y + 114), price_txt, fill="#F8FBFF", font=fp)
 
         ch = f"{'+' if change >= 0 else ''}{change:.2f}%"
         fc = get_font(24, bold=True)
         cw = draw.textbbox((0, 0), ch, font=fc)[2]
-        draw.text((x + (tile_w - cw) // 2, y + 172), ch, fill=("#23FF3B" if change >= 0 else "#FF1A1A"), font=fc)
+        draw.text((x + (tile_w - cw) // 2, y + 178), ch, fill=("#22FF39" if change >= 0 else "#FF1C1C"), font=fc)
 
     wm = f"{WATERMARK} | {datetime.now().strftime('%H:%M:%S')}"
     fw = get_font(10, bold=True)
     ww = draw.textbbox((0, 0), wm, font=fw)[2]
-    draw.text(((width - ww) // 2, height - 34), wm, fill="#A9CFC7", font=fw)
-
+    draw.text(((width - ww) // 2, height - 34), wm, fill="#9FB9B5", font=fw)
     return img.convert("RGB")
 
 async def create_top_lux_grid_async(prices_data):
@@ -356,16 +345,16 @@ async def create_coin_card_async(coin_data, chart_data=None):
 
     for y in range(height):
         t = y / max(1, height - 1)
-        draw.line([(0, y), (width, y)], fill=(int(0 + 10 * t), int(0 + 8 * t), int(0 + 14 * t)))
+        draw.line([(0, y), (width, y)], fill=(int(0 + 8 * t), int(0 + 7 * t), int(0 + 12 * t)))
 
     glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
-    gd.ellipse([width // 2 - 250, height - 205, width // 2 + 250, height + 215], fill=(accent[0], accent[1], accent[2], 120))
-    glow = glow.filter(ImageFilter.GaussianBlur(24))
+    gd.ellipse([width // 2 - 210, height - 160, width // 2 + 210, height + 170], fill=(accent[0], accent[1], accent[2], 72))
+    glow = glow.filter(ImageFilter.GaussianBlur(22))
     img = Image.alpha_composite(img, glow)
     draw = ImageDraw.Draw(img)
 
-    draw.rectangle([52, 52, width - 52, height - 52], outline=(72, 82, 96, 170), width=2)
+    draw.rectangle([52, 52, width - 52, height - 52], outline=(78, 88, 104, 155), width=2)
 
     left, right = "CONE", "SOCIETY"
     fb = ui_font(72, bold=True)
@@ -384,11 +373,10 @@ async def create_coin_card_async(coin_data, chart_data=None):
     img = Image.alpha_composite(img, panel_shadow)
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle([px, py, px + pw, py + ph], radius=78, fill=(20, 20, 24, 232), outline=(128, 136, 148, 184), width=2)
-    draw.rounded_rectangle([px + 12, py + 12, px + pw - 12, py + 20], radius=4, fill=(160, 168, 184, 55))
 
     pill_x, pill_y = px + 42, py + 56
     pill_w, pill_h = 610, 140
-    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=58, fill=(66, 66, 70, 210), outline=(114, 120, 130, 165), width=1)
+    draw.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h], radius=58, fill=(64, 64, 70, 210), outline=(114, 120, 130, 160), width=1)
 
     symbol = coin_data.get("symbol", coin_data.get("name", "")).upper()
     symbol_font = fit_font(symbol, pill_w - 190, 80, 56, bold=True)
@@ -418,15 +406,15 @@ async def create_coin_card_async(coin_data, chart_data=None):
     metric_w, metric_h = 460, 186
 
     def metric_card(y, value_text, is_positive):
-        draw.rounded_rectangle([metric_x, y, metric_x + metric_w, y + metric_h], radius=48, fill=(85, 85, 90, 188), outline=(128, 136, 146, 180), width=1)
+        draw.rounded_rectangle([metric_x, y, metric_x + metric_w, y + metric_h], radius=48, fill=(82, 82, 88, 188), outline=(128, 136, 146, 170), width=1)
         label = "CHANGE (24H)"
-        label_font = fit_font(label, metric_w - 56, 54, 38, bold=True)
+        label_font = fit_font(label, metric_w - 56, 48, 34, bold=True)
         lw2 = draw.textbbox((0, 0), label, font=label_font)[2]
-        draw.text((metric_x + (metric_w - lw2) // 2, y + 26), label, fill="#F0F4F8", font=label_font)
-        val_font = fit_font(value_text, metric_w - 64, 92, 62, bold=True)
+        draw.text((metric_x + (metric_w - lw2) // 2, y + 28), label, fill="#EDF2F8", font=label_font)
+        val_font = fit_font(value_text, metric_w - 64, 86, 56, bold=True)
         vw = draw.textbbox((0, 0), value_text, font=val_font)[2]
         col = "#26FF2B" if is_positive else "#FF1515"
-        draw.text((metric_x + (metric_w - vw) // 2, y + 92), value_text, fill=col, font=val_font)
+        draw.text((metric_x + (metric_w - vw) // 2, y + 96), value_text, fill=col, font=val_font)
 
     percent_txt = f"{'+' if change_24h >= 0 else ''}{change_24h:.2f}%"
     usd_txt = f"{'+' if usd_change_24h >= 0 else '-'}${abs(usd_change_24h):,.2f}"
